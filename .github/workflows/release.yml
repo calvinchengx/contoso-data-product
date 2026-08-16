@@ -1,0 +1,42 @@
+# Publish the data product as a wheel, so consumers install a RELEASE rather
+# than a checkout beside them.
+#
+# Both consumers used to resolve this package through `../contoso-data-product`
+# in `[tool.uv.sources]`, which meant neither could be cloned on its own and
+# neither was really proving what it claimed: that a consumer builds against
+# something everyone else can get.
+name: Release
+
+on:
+  push:
+    tags: ["v*"]
+
+permissions:
+  contents: write
+
+jobs:
+  wheel:
+    name: contoso-data-product wheel → the release
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v7
+      - uses: astral-sh/setup-uv@c771a70e6277c0a99b617c7a806ffedaca235ff9
+        with:
+          version: "0.12.3"
+      - uses: actions/setup-python@v7
+        with:
+          python-version: "3.12"
+      # Builds, installs the artifact into a throwaway venv and asserts the
+      # gold project survived packaging. A wheel that imports but ships no
+      # models fails a consumer later, at `dbt run`, a long way from here.
+      - name: Build and prove the wheel
+        run: python3 scripts/build_wheel.py
+        env:
+          GITHUB_REF_NAME: ${{ github.ref_name }}
+      - name: Attach the wheel to the GitHub Release
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          tag="${{ github.ref_name }}"
+          gh release view "$tag" >/dev/null 2>&1 || gh release create "$tag" --title "$tag" --generate-notes --verify-tag
+          gh release upload "$tag" dist/*.whl --clobber
