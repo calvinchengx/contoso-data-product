@@ -5,7 +5,7 @@ SQL and tests, and the ODCS contract identities those tests become.
 
 Consumers wrap this package. They do not copy it.
 
-- [contoso-data-platform](https://github.com/calvinchengx/contoso-data-platform) — Fabric (`FABRIC_TARGET`)
+- [contoso-fabric-platform](https://github.com/calvinchengx/contoso-fabric-platform) — Fabric (`FABRIC_TARGET`)
 - [contoso-databricks-platform](https://github.com/calvinchengx/contoso-databricks-platform) — Databricks (`DATABRICKS_TARGET`)
 
 ```python

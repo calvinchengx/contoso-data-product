@@ -3,7 +3,7 @@
 
 Reads the JSON each consumer wrote:
 
-    --fabric  catalog.json / gold snapshot from contoso-data-platform
+    --fabric  catalog.json / gold snapshot from contoso-fabric-platform
     --databricks  the sibling's equivalent
 
 The proof is not two green logs. Same aggregates, same contract names.
