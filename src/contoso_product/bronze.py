@@ -112,39 +112,42 @@ def run_bronze(
         "lineage": lineage,
     }
 
-    spark.createDataFrame(
-        [
-            (
-                metrics["bronze_customers"],
-                metrics["distinct_customers"],
-                metrics["customer_columns"],
-                metrics["customer_column_names"],
-                metrics["bronze_orders"],
-                metrics["distinct_orders"],
-                metrics["bronze_web_customers"],
-                metrics["bronze_web_products"],
-                metrics["bronze_web_orders"],
-                metrics["web_orders_has_lines"],
-                metrics["blank_columns"],
-                metrics["shared_emails"],
-                metrics["bronze_fx_rates"],
-                metrics["fx_currencies"],
-                metrics["fx_published_days"],
-                metrics["fx_calendar_span"],
-                metrics["bronze_product_hierarchy"],
-                metrics["departments"],
-                metrics["bronze_erp_changes"],
-            )
-        ],
-        "bronze_customers long, distinct_customers long, customer_columns long, "
-        "customer_column_names string, "
-        "bronze_orders long, distinct_orders long, "
-        "bronze_web_customers long, bronze_web_products long, bronze_web_orders long, "
-        "web_orders_has_lines boolean, blank_columns string, shared_emails long, "
-        "bronze_fx_rates long, fx_currencies long, fx_published_days long, "
-        "fx_calendar_span long, "
-        "bronze_product_hierarchy long, departments long, bronze_erp_changes long",
-    ).write.format("delta").mode("overwrite").option("overwriteSchema", "true").save(
-        f"{tables}/bronze_ingest_metrics"
-    )
+    try:
+        spark.createDataFrame(
+            [
+                (
+                    metrics["bronze_customers"],
+                    metrics["distinct_customers"],
+                    metrics["customer_columns"],
+                    metrics["customer_column_names"],
+                    metrics["bronze_orders"],
+                    metrics["distinct_orders"],
+                    metrics["bronze_web_customers"],
+                    metrics["bronze_web_products"],
+                    metrics["bronze_web_orders"],
+                    metrics["web_orders_has_lines"],
+                    metrics["blank_columns"],
+                    metrics["shared_emails"],
+                    metrics["bronze_fx_rates"],
+                    metrics["fx_currencies"],
+                    metrics["fx_published_days"],
+                    metrics["fx_calendar_span"],
+                    metrics["bronze_product_hierarchy"],
+                    metrics["departments"],
+                    metrics["bronze_erp_changes"],
+                )
+            ],
+            "bronze_customers long, distinct_customers long, customer_columns long, "
+            "customer_column_names string, "
+            "bronze_orders long, distinct_orders long, "
+            "bronze_web_customers long, bronze_web_products long, bronze_web_orders long, "
+            "web_orders_has_lines boolean, blank_columns string, shared_emails long, "
+            "bronze_fx_rates long, fx_currencies long, fx_published_days long, "
+            "fx_calendar_span long, "
+            "bronze_product_hierarchy long, departments long, bronze_erp_changes long",
+        ).write.format("delta").mode("overwrite").option("overwriteSchema", "true").save(
+            f"{tables}/bronze_ingest_metrics"
+        )
+    except Exception as exc:
+        metrics["metrics_table"] = f"not written: {exc}"
     return metrics
