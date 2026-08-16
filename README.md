@@ -95,3 +95,15 @@ notebook, a Databricks job cluster, or a laptop, and something it dragged in
 would become something those environments have to agree about.
 
 Apache-2.0.
+
+## Related projects
+
+This package is consumed by three platforms, which is the point of it being a
+package rather than one: [`contoso-fabric-platform`](https://github.com/calvinchengx/contoso-fabric-platform),
+[`contoso-databricks-platform`](https://github.com/calvinchengx/contoso-databricks-platform)
+and
+[`contoso-snowflake-platform`](https://github.com/calvinchengx/contoso-snowflake-platform).
+
+Each runs on its own emulator — `fabric-emulator`, `databricks-emulator` and
+`snowflake-emulator` — the first two members of the [**azure-emulators**](https://github.com/calvinchengx/azure-emulators)
+family, the third a peer of it.
