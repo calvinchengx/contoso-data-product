@@ -5,6 +5,8 @@ Reads the JSON each consumer wrote:
 
     --fabric  catalog.json / gold snapshot from contoso-fabric-platform
     --databricks  the sibling's equivalent
+    --snowflake   optional gold snapshot; a dialect_gap key is a named gap, not a silent pass
+
 
 The proof is not two green logs. Same aggregates, same contract names.
 """
@@ -26,6 +28,7 @@ def main() -> int:
     p = argparse.ArgumentParser(description=__doc__)
     p.add_argument("--fabric", type=Path, required=True)
     p.add_argument("--databricks", type=Path, required=True)
+    p.add_argument("--snowflake", type=Path, default=None)
     args = p.parse_args()
     a, b = load(args.fabric), load(args.databricks)
 
@@ -36,6 +39,18 @@ def main() -> int:
             continue
         if a[key] != b[key]:
             errs.append(f"{key}: fabric={a[key]!r} databricks={b[key]!r}")
+
+    if args.snowflake:
+        s = load(args.snowflake)
+        if s.get("dialect_gap"):
+            print(f"compare_products: snowflake named dialect gap: {s['dialect_gap']}")
+        else:
+            for key in ("revenue_usd", "cancelled_revenue_usd", "sale_lines", "contracts"):
+                if key not in s:
+                    errs.append(f"snowflake snapshot must carry {key!r}")
+                    continue
+                if a[key] != s[key]:
+                    errs.append(f"{key}: fabric={a[key]!r} snowflake={s[key]!r}")
 
     if errs:
         print("compare_products FAILED", file=sys.stderr)
