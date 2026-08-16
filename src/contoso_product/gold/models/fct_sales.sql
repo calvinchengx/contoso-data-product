@@ -51,7 +51,7 @@ web as (
     -- gives. Every web account became a party in silver, so this is total.
     join {{ ref('dim_party') }} p
       on p.email = w.email
-     and p.in_web = 1
+     and cast(p.in_web as int) = 1
 ),
 
 united as (

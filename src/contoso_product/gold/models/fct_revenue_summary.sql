@@ -45,14 +45,14 @@ select
     coalesce(pt.marketing_segment, 'Unsegmented') as customer_segment,
     coalesce(pt.country, 'Unknown')               as country,
     count(*)                                      as sale_lines,
-    sum(case when s.is_cancelled = 1 then 0 else s.quantity end) as units,
-    sum(case when s.is_cancelled = 1 then 0 else s.amount_usd end) as revenue_usd,
-    sum(case when s.is_cancelled = 1 then s.amount_usd else 0 end)
+    sum(case when cast(s.is_cancelled as int) = 1 then 0 else s.quantity end) as units,
+    sum(case when cast(s.is_cancelled as int) = 1 then 0 else s.amount_usd end) as revenue_usd,
+    sum(case when cast(s.is_cancelled as int) = 1 then s.amount_usd else 0 end)
         as cancelled_revenue_usd,
     -- The share of NET revenue priced at a carried-forward FX rate. FX is
     -- published on trading days only; see silver_notebook.py for the rule.
     sum(case
-            when s.is_cancelled = 0 and s.rate_is_carried = 1 then s.amount_usd
+            when cast(s.is_cancelled as int) = 0 and cast(s.rate_is_carried as int) = 1 then s.amount_usd
             else 0
         end) as revenue_at_carried_rate
 from {{ ref('fct_sales') }} s
