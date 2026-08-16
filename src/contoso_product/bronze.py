@@ -84,6 +84,10 @@ def run_bronze(
     fx_calendar_span = fx.selectExpr(
         "datediff(max(rate_date), min(rate_date)) + 1 AS days"
     ).collect()[0]["days"]
+    try:
+        fx_calendar_span = int(fx_calendar_span)
+    except (TypeError, ValueError):
+        fx_calendar_span = 1
 
     metrics = {
         "bronze_customers": n_cust,
@@ -101,7 +105,7 @@ def run_bronze(
         "bronze_fx_rates": n_fx,
         "fx_currencies": fx.select("currency").distinct().count(),
         "fx_published_days": fx.select("rate_date").distinct().count(),
-        "fx_calendar_span": int(fx_calendar_span),
+        "fx_calendar_span": fx_calendar_span,
         "bronze_product_hierarchy": n_hier,
         "departments": hierarchy.select("department").distinct().count(),
         "bronze_erp_changes": n_erp,
