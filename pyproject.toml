@@ -1,0 +1,22 @@
+[build-system]
+requires = ["setuptools>=68"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "contoso-data-product"
+version = "0.1.0"
+description = "Portable Contoso data product: bronze/silver Spark logic, gold dbt SQL, ODCS contracts. Consumers wrap it; they do not restate it."
+requires-python = ">=3.12"
+dependencies = []
+
+[project.optional-dependencies]
+compare = ["requests>=2.32"]
+
+[dependency-groups]
+dev = ["pytest>=9.0.3,<10"]
+
+[tool.setuptools.packages.find]
+where = ["src"]
+
+[tool.setuptools.package-data]
+contoso_product = ["py.typed", "gold/**/*"]

@@ -1,0 +1,14 @@
+name: contoso_gold
+version: "1.0.0"
+config-version: 2
+profile: contoso_gold
+model-paths: ["models"]
+macro-paths: ["macros"]
+test-paths: ["tests"]
+
+# Materialization is the consumer's. Fabric uses dbt-fabric CTAS; Databricks
+# sets +file_format: delta in its own dbt_project overlay. This file is the
+# portable model graph only.
+models:
+  contoso_gold:
+    +materialized: table
