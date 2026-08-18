@@ -15,11 +15,29 @@ _Last updated: 2026-08-18._
 | Fabric · notebooks + pipelines | `contoso-data-product-fabric-notebook-pipelines` (today: inside the platform) | `fabric-platform-notebook-pipelines` | ✅ | same numbers, all 116 repo tests; product still lives inside the platform repo |
 | Fabric · built-in Airflow | `contoso-data-product-fabric-airflow-builtin` | `fabric-platform-airflow-builtin` | ⬜ | needs the Airflow-2 shape of the DAG |
 | Databricks · Airflow 3 | `contoso-data-product-databricks-airflow3` | `databricks-platform-airflow3` | ⬜ | mostly reuses the Fabric Airflow 3 leaf |
-| Databricks · Jobs | `contoso-data-product-databricks-jobs` (today: inside the platform) | `databricks-platform-jobs` | 🟡 | pulls the real vendors; bronze **and** silver match Fabric to the row (102,000 POS customers, 93,571 CDC events, 226,544 web lines, 118,000 parties) and gold agrees exactly. 🟡 is now **purely shape**: host scripts, not Jobs; product still inside the platform |
+| Databricks · Jobs | `contoso-data-product-databricks-jobs` (today: inside the platform) | `databricks-platform-jobs` | 🟡 | Pulls the real vendors; bronze **and** silver match Fabric to the row and gold's aggregates are provably identical (`129341157.6700` read at decimal grain). On core **v0.2.0**. **But it currently publishes no snapshot at all**: `gold.py` runs the contracts before writing one, and two of them fail — `money_is_never_stored_as_float` (12 columns) and `revenue_summary_loses_no_revenue` (exact equality on float arithmetic). Both are **G8**, an emulator defect, not a product one. So the cell is caught between two correct behaviours and is **out of the three-way comparison until G8 is resolved or the family decides how to name the gap** — see the note below. The `product_snapshot.json` on disk is from **before** the DECIMAL cast landed and reports `129341157.67000002`; it is gitignored, so nothing carried it forward. 🟡 also remains for shape: host scripts, not Jobs |
 | Snowflake · Airflow 3 | `contoso-data-product-snowflake-airflow3` | `snowflake-platform-airflow3` | ⬜ | Snowflake has no bronze or silver yet |
 | Snowflake · Tasks | `contoso-data-product-snowflake-tasks` | `snowflake-platform-tasks` | 🔴 | gold-only over an empty seeded silver; emulator has no Tasks. ~~Also fails DoD 1~~ — **DoD 1 now met**: both `snowflake-target` and `contoso-data-product` moved from sibling paths to published wheels, so the repo clones and builds alone, and it is pinned to core **v0.2.0** at last. Two tests hold it |
 
 `contoso-sources` is **published**: <https://github.com/calvinchengx/contoso-sources> (Apache 2.0, `_data/` materialised not committed). G10 closed.
+
+**One decision is open, and it is a design decision rather than a gap.** The
+Databricks cell builds gold correctly and its numbers are right, but its own
+contracts fail on an emulator defect (G8), and `gold.py` refuses to publish a
+snapshot for a table that breaks its contract. Both behaviours are correct;
+together they remove the cell from the comparison the family exists to make.
+Three ways out, none of them taken yet:
+
+1. **Leave it.** No snapshot from Databricks while G8 is open. The most honest,
+   and it costs the cell its place in the comparison.
+2. **Name the gap.** `compare_products.py` already accepts `dialect_gap` for a
+   runtime that genuinely cannot do something — named rather than hidden.
+   Publish the snapshot carrying an explicit declaration that the money-type
+   contract fails here for G8. Fits the idiom the family already has, and
+   changes the snapshot schema, which is a **core** change.
+3. **Cast the aggregates in shared gold SQL.** Green everywhere, and it hides
+   an emulator defect inside product code. Recorded for completeness; argued
+   against.
 
 ## The gaps, and who owns each
 
