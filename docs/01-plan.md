@@ -22,22 +22,26 @@ _Last updated: 2026-08-18._
 `contoso-sources` is **published**: <https://github.com/calvinchengx/contoso-sources> (Apache 2.0, `_data/` materialised not committed). G10 closed.
 
 **One decision is open, and it is a design decision rather than a gap.** The
-Databricks cell builds gold correctly and its numbers are right, but its own
-contracts fail on an emulator defect (G8), and `gold.py` refuses to publish a
-snapshot for a table that breaks its contract. Both behaviours are correct;
+Databricks cell builds gold correctly and its numbers are right, but two of its
+own contracts fail on an emulator defect (G8), and `gold.py` refuses to publish
+a snapshot for a table that breaks its contract. Both behaviours are correct;
 together they remove the cell from the comparison the family exists to make.
-Three ways out, none of them taken yet:
 
-1. **Leave it.** No snapshot from Databricks while G8 is open. The most honest,
-   and it costs the cell its place in the comparison.
-2. **Name the gap.** `compare_products.py` already accepts `dialect_gap` for a
-   runtime that genuinely cannot do something — named rather than hidden.
-   Publish the snapshot carrying an explicit declaration that the money-type
-   contract fails here for G8. Fits the idiom the family already has, and
-   changes the snapshot schema, which is a **core** change.
-3. **Cast the aggregates in shared gold SQL.** Green everywhere, and it hides
-   an emulator defect inside product code. Recorded for completeness; argued
-   against.
+The question underneath is narrow: **should a cell publish a measurement when
+its contracts failed?**
+
+| | option | verdict |
+|---|---|---|
+| 1 | **Leave it.** No snapshot from Databricks while G8 is open. | Honest, and it costs the cell its place in the comparison. |
+| 2 | ~~**Name it with `dialect_gap`.**~~ | **Does not work — checked, not assumed.** For the optional runtimes `dialect_gap` skips comparison entirely, but Databricks is half of the REQUIRED pair: there it only exempts the snapshot from `empty()`, and the aggregates are still compared at `compare_products.py`. So it would exempt nothing that matters, while permanently disarming the one guard that catches a genuine future zero for that cell. Its stated meaning — "this runtime genuinely cannot build gold" — is also false here. |
+| 3 | **Cast the aggregates in shared gold SQL.** | Green everywhere, and it hides an emulator defect inside product code. Argued against. |
+| 4 | **Separate recording a measurement from asserting a pass.** `gold.py` writes the snapshot AND THEN exits non-zero; the snapshot carries a `contract_failures` field naming each failing contract and the issue behind it; `compare_products` compares aggregates as normal but cannot report agreement without surfacing the failures. | Preferred. `make verify` stays red, which is correct and loses nothing. The numbers stay comparable, because they are evidence and evidence is worth recording even when a run failed. And the failure travels WITH the evidence rather than being absent from it — the opposite of the 19:06 stale file, which silently outlived its own fix. |
+
+Option 4 costs more than 1, changes the snapshot schema, and changes what a
+green family means, so it is not taken unilaterally. One detail to settle if it
+is chosen: `compare_products` should exit **non-zero** when any snapshot carries
+`contract_failures`, while still printing the aggregate agreement — otherwise
+"the family is green" could be true while a contract was failing.
 
 ## The gaps, and who owns each
 
