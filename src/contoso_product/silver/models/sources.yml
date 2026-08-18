@@ -1,0 +1,40 @@
+version: 2
+
+# BRONZE, as a contract between the platform that writes it and the silver
+# that reads it.
+#
+# Every name here is a `var`, defaulted in dbt_project.yml to the
+# vendor-prefixed scheme. That indirection is the whole point: bronze is
+# written by the PLATFORM, in whatever technology that platform has -- Spark on
+# a Fabric notebook, delta-rs in an Airflow worker, `COPY INTO` on Snowflake --
+# and a platform whose bronze predates this convention overrides the var rather
+# than renaming its tables under a running pipeline.
+#
+# What is NOT negotiable is the shape: whatever a platform calls these, the
+# columns silver reads must be there. That is what makes bronze a contract
+# rather than a suggestion.
+sources:
+  - name: bronze
+    # THE SCHEMA THE PLATFORM'S BRONZE LANDS IN, supplied per run.
+    #
+    # This once said `default` and was propped up by the product registering
+    # every bronze table into the engine's session catalog on each run.
+    # Measured against a COLD engine, with no registration at all:
+    #
+    #     lake.bronze_pos_customers      -> 102,000
+    #     default.bronze_pos_customers   -> TABLE_OR_VIEW_NOT_FOUND
+    #
+    # A Fabric Lakehouse's Tables/ are discovered into a schema named after the
+    # lakehouse; a Databricks catalog names its own; Snowflake names its own
+    # again. So the platform says, and the default is only for parse-time
+    # `dbt ls`, which does not connect.
+    schema: "{{ env_var('DBT_BRONZE_SCHEMA', 'bronze') }}"
+    tables:
+      - name: "{{ var('bronze_pos_customers') }}"
+      - name: "{{ var('bronze_pos_orders') }}"
+      - name: "{{ var('bronze_web_customers') }}"
+      - name: "{{ var('bronze_web_orders') }}"
+      - name: "{{ var('bronze_web_products') }}"
+      - name: "{{ var('bronze_ref_product_hierarchy') }}"
+      - name: "{{ var('bronze_ref_fx_rates') }}"
+      - name: "{{ var('bronze_erp_customer_changes') }}"

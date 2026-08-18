@@ -19,4 +19,8 @@ dev = ["pytest>=9.0.3,<10"]
 where = ["src"]
 
 [tool.setuptools.package-data]
-contoso_product = ["py.typed", "gold/**/*"]
+# BOTH dbt projects ship in the wheel. A consumer resolves them with
+# `gold_dir()` / `silver_dir()` and points dbt there; a model that failed to
+# package would surface as a dbt compilation error in a consumer's CI, naming
+# a path rather than the omission that caused it.
+contoso_product = ["py.typed", "gold/**/*", "silver/**/*"]

@@ -1,0 +1,84 @@
+# Silver: conform, resolve identity, quarantine. Gold reads only silver.
+#
+# THE CANONICAL SILVER. It lives here, in the core product, because every cell
+# of the family must compute the same silver -- and a copy in one platform is
+# how "one product" quietly becomes two. It moved here from the Fabric Airflow
+# leaf, which had been its only home while gold was the only shared layer.
+#
+# ENGINE-NEUTRAL BY INDIRECTION, not by pretending engines are the same. Where
+# a platform must decide something -- where tables land, what its bronze is
+# called, which schema holds it -- this project reads a var or an env var and
+# the platform supplies it. Where a DIALECT differs, a macro in `macros/`
+# carries the difference, exactly as gold's `flag.sql` does.
+#
+# WHAT IS NOT YET NEUTRAL, stated rather than implied: several models use
+# Spark-SQL constructs (`lateral view explode`, `posexplode`, `date_add`,
+# `datediff`). They run on dbt-fabricspark and dbt-databricks. They will NOT
+# run on Snowflake or a Fabric Warehouse without dialect macros -- that is G5
+# in the plan, and it is a known gap rather than a surprise waiting.
+name: contoso_silver
+version: "1.0.0"
+config-version: 2
+profile: contoso_silver
+model-paths: ["models"]
+macro-paths: ["macros"]
+test-paths: ["tests"]
+models:
+  contoso_silver:
+    +materialized: table
+    +file_format: delta
+    # WHERE THE TABLE LANDS, and it is not a detail. Without `location_root`
+    # the adapter emits `create or replace table x as select ...` with no
+    # LOCATION, the engine writes into its own warehouse directory, and the
+    # result is a table that is real, queryable from the engine, and invisible
+    # to the lakehouse -- so its SQL endpoint never reflects it and every one
+    # of gold's `source('silver', ...)` fails to resolve. Measured on Fabric
+    # before this line existed: the endpoint listed the 8 bronze tables (which
+    # bronze registers with an explicit LOCATION) and none of silver's 7.
+    #
+    # SUPPLIED BY THE PLATFORM, per run, because only the platform knows its
+    # own storage. The default exists solely for parse-time `dbt ls`, which
+    # does not connect.
+    +location_root: "{{ env_var('DBT_SILVER_LOCATION_ROOT', 'parse-time-placeholder') }}"
+
+vars:
+  # THE COUNTRY MAP, and it must equal `contoso_product.COUNTRY` exactly.
+  #
+  # dbt cannot import Python, so this is the one duplication the core cannot
+  # delete -- it can only refuse to let it drift. `test_country_map_is_not_
+  # duplicated_by_accident` fails if these two ever disagree, which is what
+  # makes a variant present in one and missing in the other impossible rather
+  # than merely unlikely. The vendors disagree about country spelling ON
+  # PURPOSE; the product must not.
+  country_variants:
+    US: US
+    USA: US
+    "U.S.": US
+    UNITED STATES: US
+    GB: GB
+    GBR: GB
+    UK: GB
+    "U.K.": GB
+    UNITED KINGDOM: GB
+    SG: SG
+    SGP: SG
+    SINGAPORE: SG
+
+  # WHAT THIS PLATFORM CALLS ITS BRONZE. The default is the vendor-prefixed
+  # scheme, because a table named `bronze_customers` does not say WHOSE
+  # customers -- and this product has two vendors that both ship customers.
+  #
+  # A var rather than a hard-coded name because bronze is written by the
+  # platform, in whatever technology that platform has: Spark on a Fabric
+  # notebook, delta-rs in an Airflow worker, `COPY INTO` on Snowflake. The
+  # writer is the platform's business; the NAME is a contract between bronze
+  # and silver, so it is declared here and overridden by any platform whose
+  # bronze predates this convention.
+  bronze_pos_customers: bronze_pos_customers
+  bronze_pos_orders: bronze_pos_orders
+  bronze_web_customers: bronze_web_customers
+  bronze_web_orders: bronze_web_orders
+  bronze_web_products: bronze_web_products
+  bronze_ref_product_hierarchy: bronze_ref_product_hierarchy
+  bronze_ref_fx_rates: bronze_ref_fx_rates
+  bronze_erp_customer_changes: bronze_erp_customer_changes

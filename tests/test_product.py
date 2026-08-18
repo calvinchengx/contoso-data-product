@@ -6,7 +6,7 @@ import ast
 import re
 from pathlib import Path
 
-from contoso_product import COUNTRY, MONEY, RATE, gold_dir
+from contoso_product import COUNTRY, MONEY, RATE, gold_dir, silver_dir
 from contoso_product.contracts import METRICS, PRODUCT_NAME, schema_yml
 
 
@@ -248,3 +248,92 @@ def test_no_orchestrator_in_core():
                         if s.startswith((f"import {b}", f"from {b}")):
                             hits.append(f"{rel}: {s}")
     assert hits == [], f"an orchestrator leaked into the core: {hits}"
+
+
+# --- G1: silver is canonical here, and the one thing dbt cannot import -------
+
+
+def _silver_project() -> str:
+    return (silver_dir() / "dbt_project.yml").read_text(encoding="utf-8")
+
+
+def test_silver_project_is_complete():
+    """The canonical silver ships whole, or a consumer's dbt fails on a path.
+
+    Eight models, the conform macro, sources, and the schema that documents
+    them. This is `test_gold_project_is_complete`'s twin, and it exists for the
+    same reason: `silver_dir()` is only worth having if what it points at is
+    the entire project.
+    """
+    s = silver_dir()
+    assert (s / "dbt_project.yml").is_file()
+    assert (s / "macros" / "conform.sql").is_file()
+    assert (s / "models" / "sources.yml").is_file()
+    assert (s / "models" / "schema.yml").is_file()
+    models = sorted(p.stem for p in (s / "models").glob("*.sql"))
+    assert models == [
+        "silver_customers",
+        "silver_fx_daily",
+        "silver_orders",
+        "silver_party",
+        "silver_product_hierarchy",
+        "silver_quarantine_orders",
+        "silver_web_customers",
+        "silver_web_order_lines",
+    ], models
+
+
+def test_country_map_is_not_duplicated_by_accident():
+    """`country_variants` in dbt_project.yml must equal `COUNTRY` exactly.
+
+    THE ONE DUPLICATION THIS PACKAGE CANNOT DELETE. dbt cannot import Python,
+    so the conform map has to be written twice -- once for `run_silver`, once
+    for the dbt models. What it CAN do is refuse to let the two drift, which is
+    what this test is.
+
+    The failure it prevents is silent by construction: a variant present in one
+    and missing in the other conforms a country in one runner and passes it
+    through raw in the other. Every row count still matches, every contract
+    still passes, and two cells report different countries for the same
+    customer. That is the exact shape of divergence G1 exists to end, so the
+    map that survived the merge gets a test rather than a comment.
+    """
+    text = _silver_project()
+    block = text[text.index("country_variants:"):]
+    parsed = {}
+    for line in block.splitlines()[1:]:
+        if not line.startswith("    ") or ":" not in line:
+            break
+        key, _, value = line.strip().partition(":")
+        parsed[key.strip().strip('"')] = value.strip()
+    assert parsed == COUNTRY, (
+        "the dbt country map and contoso_product.COUNTRY have diverged.\n"
+        f"  only in dbt:    {sorted(set(parsed) - set(COUNTRY))}\n"
+        f"  only in Python: {sorted(set(COUNTRY) - set(parsed))}\n"
+        f"  disagree:       "
+        f"{sorted(k for k in set(parsed) & set(COUNTRY) if parsed[k] != COUNTRY[k])}"
+    )
+
+
+def test_silver_models_name_no_bronze_table_directly():
+    """Bronze names are a contract, declared as vars, never inlined.
+
+    Bronze is written by the platform in whatever technology it has, and the
+    platforms do not agree on what they call it: this package's own
+    `run_bronze` writes `bronze_customers`, while the Fabric Airflow cell's
+    delta-rs bronze writes `bronze_pos_customers`. Both are defensible; a model
+    that hard-codes either is not, because it silently only works on half the
+    family.
+    """
+    offenders = []
+    for p in (silver_dir() / "models").glob("*.sql"):
+        text = p.read_text(encoding="utf-8")
+        for line in text.splitlines():
+            if line.lstrip().startswith("--"):
+                continue
+            if "source('bronze', '" in line:
+                offenders.append(f"{p.name}: {line.strip()}")
+    assert offenders == [], (
+        "a silver model names a bronze table directly instead of through a "
+        "var: " + str(offenders)
+    )
