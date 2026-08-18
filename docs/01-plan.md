@@ -11,7 +11,7 @@ _Last updated: 2026-08-18._
 
 | cell | product | platform | status | evidence / gap |
 |---|---|---|---|---|
-| Fabric · Airflow 3 | `contoso-data-product-fabric-airflow3` | `fabric-platform-airflow3` | 🟡 | **Verification in progress on core v0.2.0.** Previously ✅ at 36/36 tasks, `129,341,157.6700 / 2,800,504.4000 / 474,044`, 18 self-declared assets — but silver moved into core under G1 and the stack was bind-mounted to the pre-rename path, so the numbers are being re-witnessed before this returns to ✅ |
+| Fabric · Airflow 3 | `contoso-data-product-fabric-airflow3` | `fabric-platform-airflow3` | ✅ | **Re-witnessed on core v0.2.0** from empty volumes: 36/36 tasks, `129,341,157.6700 / 2,800,504.4000 / 474,044`, gold rows unchanged (dim_party 118,000, fct_sales 474,044, fct_revenue_summary 119). Moving silver into core changed where the models live and nothing about what they compute, which was the claim. Snapshot at `9379012` |
 | Fabric · notebooks + pipelines | `contoso-data-product-fabric-notebook-pipelines` (today: inside the platform) | `fabric-platform-notebook-pipelines` | ✅ | same numbers, all 116 repo tests; product still lives inside the platform repo |
 | Fabric · built-in Airflow | `contoso-data-product-fabric-airflow-builtin` | `fabric-platform-airflow-builtin` | ⬜ | needs the Airflow-2 shape of the DAG |
 | Databricks · Airflow 3 | `contoso-data-product-databricks-airflow3` | `databricks-platform-airflow3` | ⬜ | mostly reuses the Fabric Airflow 3 leaf |
