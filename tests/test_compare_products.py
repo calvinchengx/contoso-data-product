@@ -93,3 +93,77 @@ def test_airflow_is_compared_against_fabric_like_every_other_runtime(tmp_path):
                        capture_output=True, text=True)
     assert r.returncode == 0, r.stderr
     assert "airflow" in r.stdout
+
+
+def test_contract_failures_are_fatal_however_well_the_numbers_agree(tmp_path):
+    """The exit code is what keeps option 4 from becoming "publish anyway".
+
+    A cell may now record a measurement whose contracts failed, because
+    refusing to publish removed that cell from the comparison the family
+    exists to make. That separation -- recording a measurement vs asserting a
+    pass -- only means something while the assert still fails. If this script
+    reported agreement, exited 0, and mentioned the failing contract in
+    passing, it would publish the exact sentence the family exists to prevent.
+    """
+    fabric, dbx = tmp_path / "f.json", tmp_path / "d.json"
+    _snap(fabric)
+    _snap(dbx, contract_failures=[{
+        "contract": "money_is_never_stored_as_float", "status": "fail",
+        "failures": 12, "detail": "Got 12 results, configured to fail if != 0",
+        "cause": "databricks-emulator#46"}])
+    r = subprocess.run(
+        [sys.executable, str(SCRIPT), "--fabric", str(fabric), "--databricks", str(dbx)],
+        cwd=ROOT, capture_output=True, text=True, check=False)
+    assert r.returncode == 1, (r.stdout, r.stderr)
+    # The agreement is still REPORTED -- "the numbers match and a type contract
+    # does not" is more useful than either half alone.
+    assert "agree on" in r.stdout, r.stdout
+    # And the failure is surfaced in the producer's own words, cause included.
+    assert "money_is_never_stored_as_float" in r.stderr
+    assert "failures=12" in r.stderr
+    assert "Got 12 results" in r.stderr
+    assert "databricks-emulator#46" in r.stderr
+
+
+def test_absent_contract_failures_is_not_the_same_as_empty(tmp_path):
+    """Absent means "checked, all passed". `[]` must never be written.
+
+    The producing side is careful about it because an empty list is
+    indistinguishable from a runtime that recorded the field without ever
+    running a contract. This asserts the consuming side treats a clean snapshot
+    as clean -- and, by exercising `[]` too, that a runtime which somehow wrote
+    one is not reported as failing.
+    """
+    fabric, dbx = tmp_path / "f.json", tmp_path / "d.json"
+    _snap(fabric)
+    _snap(dbx)
+    r = subprocess.run(
+        [sys.executable, str(SCRIPT), "--fabric", str(fabric), "--databricks", str(dbx)],
+        cwd=ROOT, capture_output=True, text=True, check=False)
+    assert r.returncode == 0, (r.stdout, r.stderr)
+    assert "did not pass its own contracts" not in r.stderr
+
+    _snap(dbx, contract_failures=[])
+    r = subprocess.run(
+        [sys.executable, str(SCRIPT), "--fabric", str(fabric), "--databricks", str(dbx)],
+        cwd=ROOT, capture_output=True, text=True, check=False)
+    assert r.returncode == 0, (r.stdout, r.stderr)
+
+
+def test_a_failure_in_an_optional_runtime_is_fatal_too(tmp_path):
+    """Snowflake and airflow are optional ARGUMENTS, not optional evidence.
+
+    A snapshot that was passed in has to be held to the same rule; otherwise
+    the way to make a contract failure disappear is to pass it as `--airflow`.
+    """
+    fabric, dbx, air = tmp_path / "f.json", tmp_path / "d.json", tmp_path / "a.json"
+    _snap(fabric)
+    _snap(dbx)
+    _snap(air, contract_failures=[{"contract": "revenue_summary_loses_no_revenue",
+                                   "status": "fail", "failures": 1}])
+    r = subprocess.run(
+        [sys.executable, str(SCRIPT), "--fabric", str(fabric), "--databricks", str(dbx),
+         "--airflow", str(air)],
+        cwd=ROOT, capture_output=True, text=True, check=False)
+    assert r.returncode == 1, (r.stdout, r.stderr)
+    assert "airflow" in r.stderr and "revenue_summary_loses_no_revenue" in r.stderr

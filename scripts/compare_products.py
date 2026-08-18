@@ -17,6 +17,24 @@ on revenue_usd=0 contracts=[]", exit 0. Two runtimes that produced nothing
 compare equal, so `empty()` refuses a snapshot that carries no evidence before
 any comparison happens. A runtime that genuinely cannot build gold says so with
 `dialect_gap`, which is a NAMED gap and still allowed.
+
+AND A RUNTIME THAT FAILED ITS OWN CONTRACTS SAYS SO TOO, with
+`contract_failures` -- and that is FATAL here, however well the numbers agree.
+
+The reason it has to be fatal is the whole point of letting such a snapshot
+exist at all. A cell used to refuse to publish anything when a contract failed,
+which is correct in itself and removed that cell from this comparison entirely
+-- so the family lost its evidence for a defect that was not the product's. The
+answer was to separate RECORDING A MEASUREMENT from ASSERTING A PASS: the cell
+writes what it measured and still exits non-zero, and the failure travels with
+the evidence instead of being absent from it.
+
+That separation only means anything while the assert still fails. If this
+script reported "three runtimes agree", exited 0, and mentioned the failing
+contract in passing, it would be publishing exactly the sentence the family
+exists to prevent -- and the separation would have quietly become "publish
+anyway" with extra JSON. So the aggregates are compared and reported as
+normal, the failures are surfaced in full, and the exit code is non-zero.
 """
 from __future__ import annotations
 
@@ -59,6 +77,42 @@ def empty(snap: dict) -> str | None:
             "runtime built no gold, and comparing it to another would be two "
             "absences agreeing (contracts are globbed from the shared project, "
             "so they are named either way)")
+
+
+def contract_failures(snap: dict) -> list[dict]:
+    """The contracts this runtime ran and failed, as it recorded them.
+
+    ABSENT WHEN CLEAN, never `[]`. That distinction is load-bearing and the
+    producing side is careful about it: absent means "this runtime checked and
+    everything passed", where an empty list would be indistinguishable from a
+    runtime that recorded the field without ever running a contract. `.get`
+    with a default of `[]` reads both the same way, which is fine HERE -- this
+    function only asks what failed -- but it is why nothing writes `[]`.
+    """
+    got = snap.get("contract_failures") or []
+    return got if isinstance(got, list) else []
+
+
+def describe_failure(f: dict) -> str:
+    """One failing contract, in the producer's own words.
+
+    `detail` comes verbatim from dbt's run_results.json rather than being
+    reconstructed here, and `cause` is optional and platform-supplied: a
+    platform knows its own emulator's defects and this script should not have
+    to. Printing whatever arrived beats printing a shape this script imagined.
+    """
+    if not isinstance(f, dict):
+        return f"  {f!r}"
+    name = f.get("contract", "?")
+    bits = [f"status={f.get('status', '?')}"]
+    if f.get("failures") is not None:
+        bits.append(f"failures={f['failures']}")
+    line = f"  {name}: {', '.join(bits)}"
+    if f.get("detail"):
+        line += f"\n      {f['detail']}"
+    if f.get("cause"):
+        line += f"\n      cause: {f['cause']}"
+    return line
 
 
 def main() -> int:
@@ -113,6 +167,11 @@ def main() -> int:
         for e in errs:
             print(f"  {e}", file=sys.stderr)
         return 1
+
+    # THE AGGREGATES AGREE. Say so plainly -- that is a real result and it is
+    # worth stating even when a contract failed, because "the numbers match and
+    # a type contract does not" is a far more useful sentence than either half
+    # alone. Then fail, below.
     agreed = ["fabric", "databricks"]
     if args.snowflake:
         agreed.append("snowflake")
@@ -122,6 +181,30 @@ def main() -> int:
         f"compare_products: {', '.join(agreed)} agree on "
         f"revenue_usd={a.get('revenue_usd')} contracts={a.get('contracts')}"
     )
+
+    named = [("fabric", a), ("databricks", b)]
+    for flag, path in (("snowflake", args.snowflake), ("airflow", args.airflow)):
+        if path:
+            named.append((flag, load(path)))
+    failing = [(n, contract_failures(s)) for n, s in named if contract_failures(s)]
+    if failing:
+        print(
+            "\ncompare_products FAILED: the numbers agree, but a runtime did "
+            "not pass its own contracts.",
+            file=sys.stderr,
+        )
+        for name, fails in failing:
+            print(f"  {name}:", file=sys.stderr)
+            for f in fails:
+                print(describe_failure(f), file=sys.stderr)
+        print(
+            "\nAgreement on aggregates is not agreement that the product is "
+            "correct. A contract is the part that says WHAT the numbers are, "
+            "and one of these runtimes is reporting that its own answer to "
+            "that is wrong.",
+            file=sys.stderr,
+        )
+        return 1
     return 0
 
 
