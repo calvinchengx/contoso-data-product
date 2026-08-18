@@ -11,7 +11,7 @@ _Last updated: 2026-08-18._
 
 | cell | product | platform | status | evidence / gap |
 |---|---|---|---|---|
-| Fabric · Airflow 3 | `contoso-data-product-fabric-airflow3` (today: `contoso-airflow-data-product`) | `fabric-platform-airflow3` | ✅ | 36/36 tasks; `129,341,157.6700 / 2,800,504.4000 / 474,044`; 18 self-declared assets |
+| Fabric · Airflow 3 | `contoso-data-product-fabric-airflow3` | `fabric-platform-airflow3` | ✅ | 36/36 tasks; `129,341,157.6700 / 2,800,504.4000 / 474,044`; 18 self-declared assets |
 | Fabric · notebooks + pipelines | `contoso-data-product-fabric-notebook-pipelines` (today: inside the platform) | `fabric-platform-notebook-pipelines` | ✅ | same numbers, all 116 repo tests; product still lives inside the platform repo |
 | Fabric · built-in Airflow | `contoso-data-product-fabric-airflow-builtin` | `fabric-platform-airflow-builtin` | ⬜ | needs the Airflow-2 shape of the DAG |
 | Databricks · Airflow 3 | `contoso-data-product-databricks-airflow3` | `databricks-platform-airflow3` | ⬜ | mostly reuses the Fabric Airflow 3 leaf |
@@ -48,7 +48,7 @@ turns green and the gap it closes.
 | # | step | closes | turns green |
 |---|---|---|---|
 | ~~0~~ | ~~Commit the verified databricks sources work; publish `contoso-sources`; write this plan~~ **Done.** Vendor-ingest committed (`databricks-platform-jobs` `9355579`); `contoso-sources` published; core **v0.1.1** cut and three consumers pinned | G10 G11 | — |
-| 1 | **Rename and reserve.** `contoso-airflow-data-product` → `contoso-data-product-fabric-airflow3`; create the six other leaves empty | — | — (shape) |
+| ~~1~~ | ~~**Rename and reserve.**~~ **Done.** `contoso-airflow-data-product` → `contoso-data-product-fabric-airflow3` (repo, package name, lockfile, and every reference); the six other leaves created public with LICENSE + README. All 7 leaves and 7 platforms now exist | — | — (shape) |
 | 2 | **Unify core.** dbt silver models move down from the Airflow leaf; PySpark path executes the same SQL; silver-metrics equality test; `RULES.md` in core | G1 | — (foundation) |
 | 3 | **Split the two platforms that contain their product.** Notebook-pipelines and databricks-jobs each become platform + leaf; both leaves pin core by tag | G2 | Fabric · notebooks ✅ honest; Databricks · Jobs stays 🟡 |
 | 4 | **Databricks · Airflow 3.** New leaf from the Fabric Airflow 3 leaf: volume sink, Databricks profile; new platform | — | Databricks · Airflow 3 ✅ |
