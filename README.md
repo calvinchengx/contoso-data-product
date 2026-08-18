@@ -9,6 +9,18 @@ tests, and the ODCS contract identities those tests become.
 It is a **package, not a platform.** There is no workspace here, no warehouse,
 no catalog, no endpoint and no credential. A consumer binds those and calls in.
 
+It is also the **core of a family**: seven leaf products (one per platform, in
+that platform's idiom) depend on it by tag, and seven platforms run them. The
+layout is [`docs/00-family.md`](docs/00-family.md); the plan and every cell's
+status is [`docs/01-plan.md`](docs/01-plan.md); what may live where is
+[`RULES.md`](RULES.md).
+
+|  | Fabric | Databricks | Snowflake |
+|---|---|---|---|
+| **Airflow 3** | ✅ | ⬜ | ⬜ |
+| **engine-native** | ✅ | 🟡 | 🔴 |
+| **built-in Airflow** | ⬜ | — | — |
+
 ## Why this is its own repository
 
 A data engineer writes the product once. Where it runs is somebody else's
