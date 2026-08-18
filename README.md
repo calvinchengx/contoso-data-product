@@ -23,8 +23,8 @@ on it, and a change lands in both runtimes or in neither.
 
 | consumer | runtime | switch |
 |---|---|---|
-| [contoso-fabric-platform](https://github.com/calvinchengx/contoso-fabric-platform) | Microsoft Fabric | `FABRIC_TARGET` |
-| [contoso-databricks-platform](https://github.com/calvinchengx/contoso-databricks-platform) | Databricks | `DATABRICKS_TARGET` |
+| [fabric-platform-notebook-pipelines](https://github.com/calvinchengx/fabric-platform-notebook-pipelines) | Microsoft Fabric | `FABRIC_TARGET` |
+| [databricks-platform-jobs](https://github.com/calvinchengx/databricks-platform-jobs) | Databricks | `DATABRICKS_TARGET` |
 
 ## What a consumer calls
 
@@ -99,10 +99,10 @@ Apache-2.0.
 ## Related projects
 
 This package is consumed by three platforms, which is the point of it being a
-package rather than one: [`contoso-fabric-platform`](https://github.com/calvinchengx/contoso-fabric-platform),
-[`contoso-databricks-platform`](https://github.com/calvinchengx/contoso-databricks-platform)
+package rather than one: [`fabric-platform-notebook-pipelines`](https://github.com/calvinchengx/fabric-platform-notebook-pipelines),
+[`databricks-platform-jobs`](https://github.com/calvinchengx/databricks-platform-jobs)
 and
-[`contoso-snowflake-platform`](https://github.com/calvinchengx/contoso-snowflake-platform).
+[`snowflake-platform-tasks`](https://github.com/calvinchengx/snowflake-platform-tasks).
 
 Each runs on its own emulator — `fabric-emulator`, `databricks-emulator` and
 `snowflake-emulator` — the first two members of the [**azure-emulators**](https://github.com/calvinchengx/azure-emulators)

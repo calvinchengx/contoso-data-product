@@ -3,10 +3,10 @@
 
 Reads the JSON each consumer wrote:
 
-    --fabric  catalog.json / gold snapshot from contoso-fabric-platform
+    --fabric  catalog.json / gold snapshot from fabric-platform-notebook-pipelines
     --databricks  the sibling's equivalent
     --snowflake   optional gold snapshot; a dialect_gap key is a named gap, not a silent pass
-    --airflow     optional gold snapshot from airflow-fabric-platform
+    --airflow     optional gold snapshot from fabric-platform-airflow3
 
 
 The proof is not two green logs. Same aggregates, same contract names.
