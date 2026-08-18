@@ -50,13 +50,20 @@ select
     calendar_month,
     {{ date_quarter('date_key') }} as calendar_quarter,
     fiscal_year,
-    fiscal_month_index / 3 + 1 as fiscal_quarter,
+    -- CAST, BECAUSE `/` DOES NOT MEAN THE SAME THING ON BOTH ENGINES. T-SQL
+    -- divides two ints and gives an int; Spark's `/` is always double
+    -- division, so this column arrived as `fiscal_quarter` 1.0 rather than 1
+    -- on the Databricks runtime -- and `accepted_values` for [1,2,3,4] failed
+    -- there while passing on Fabric, from one shared model. Truncation toward
+    -- zero is what both do to a non-negative value, so the cast makes the two
+    -- agree rather than choosing between them.
+    cast(fiscal_month_index / 3 as int) + 1 as fiscal_quarter,
     fiscal_month_index + 1     as fiscal_period,
     -- The label a report writer actually puts on an axis. Built here so every
     -- surface spells it the same way.
     {{ str_concat("'FY'", "right(cast(fiscal_year as " ~ varchar_n(4) ~ "), 2)") }} as fiscal_year_label,
     {{ str_concat(
         str_concat("'FY'", "right(cast(fiscal_year as " ~ varchar_n(4) ~ "), 2)"),
-        str_concat("' Q'", "cast(fiscal_month_index / 3 + 1 as " ~ varchar_n(1) ~ ")")
+        str_concat("' Q'", "cast(cast(fiscal_month_index / 3 as int) + 1 as " ~ varchar_n(1) ~ ")")
     ) }} as fiscal_quarter_label
 from parts
