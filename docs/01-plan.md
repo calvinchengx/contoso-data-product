@@ -59,14 +59,19 @@ Two traps this surfaced, both worth keeping:
   contract failures on a run where two failed — the precise false green this
   design exists to prevent. Assert `args.which == "test"` first.
 
-**A green that names no image is not a green.** The Databricks cell currently
-passes every contract, and the three-way comparison exits 0 — against a
-locally built `databricks-emulator:g8fix-local` that has never been pushed
+**A green that names no image is not a green.** For several hours the Databricks
+cell passed every contract and the three-way comparison exited 0 — against a
+locally built `databricks-emulator:g8fix-local` that had never been pushed
 (`docker image inspect --format '{{.RepoDigests}}'` → `[]`) while `versions.env`
-pins `0.2.4`. The measurement is real and the fix is real; the *claim* "the cell
-is green" is not, because no one else can reproduce it. This is G11's shape one
-tier up — a change that never ships reaches no consumer — and the family's own
-discipline is that a green run says which images it verified.
+still pinned `0.2.4`. The measurement was real and the fix was real; the *claim*
+"the cell is green" was not, because no one else could reproduce it. That was
+G11's shape one tier up — a change that never ships reaches no consumer — and
+the family's own discipline is that a green run says which images it verified.
+
+It has since been verified twice, independently, against the published image:
+`ghcr.io/calvinchengx/databricks-emulator:0.2.5`,
+`sha256:83bd3ed5cd9d3ba1c0218fb1b5ad629f2089c9dd4a1690098b518ae8106a3da4` — a
+digest, where the local build had none.
 
 The sequence that turned it into a reproducible claim — **all of it done**:
 
