@@ -337,3 +337,82 @@ def test_silver_models_name_no_bronze_table_directly():
         "a silver model names a bronze table directly instead of through a "
         "var: " + str(offenders)
     )
+
+
+# --- G1: the second runner executes the FIRST definition ---------------------
+
+
+def _models() -> dict:
+    return {p.stem: p.read_text(encoding="utf-8") for p in (silver_dir() / "models").glob("*.sql")}
+
+
+def _bind() -> dict:
+    return {n: n for n in (
+        "bronze_pos_customers", "bronze_pos_orders", "bronze_web_customers",
+        "bronze_web_orders", "bronze_web_products", "bronze_ref_product_hierarchy",
+        "bronze_ref_fx_rates", "bronze_erp_customer_changes")}
+
+
+def test_every_silver_model_renders_with_no_tag_left_behind():
+    """An unrendered `{{ ... }}` is a syntax error three layers from its cause.
+
+    The renderer exists so a cell with a Spark session and no dbt can execute
+    the CANONICAL silver rather than a PySpark restatement of it -- which is
+    the half of G1 that moving the project into core did not close. It is only
+    worth having if it handles every construct the models actually use, so this
+    renders all of them rather than a sample.
+    """
+    from contoso_product.silver_sql import model_order, render
+
+    models = _models()
+    refs = {n: n for n in models}
+    for name in model_order(models):
+        out = render(models[name], sources=_bind(), refs=refs)
+        assert "{{" not in out and "}}" not in out, f"{name} kept a tag: {out[:200]}"
+        assert out.strip(), name
+
+
+def test_the_renderer_refuses_a_construct_it_does_not_know():
+    """Guessing is the failure mode worth designing against.
+
+    A construct silently dropped produces SQL that RUNS and computes something
+    else -- strictly worse than a syntax error, because nothing reports it.
+    """
+    import pytest
+
+    from contoso_product.silver_sql import render
+
+    with pytest.raises(ValueError, match="will not guess"):
+        render("select {{ some_macro('x') }} from t", sources={}, refs={})
+
+
+def test_silver_party_is_ordered_after_what_it_reads():
+    """The order comes from the models' own refs, not from a list.
+
+    A hand-written order is a second place for the graph to live, which is the
+    defect this whole layer is about. silver_party reads silver_customers and
+    silver_web_customers, so it cannot be built first.
+    """
+    from contoso_product.silver_sql import model_order
+
+    order = model_order(_models())
+    assert order[-1] == "silver_party", order
+    assert order.index("silver_customers") < order.index("silver_party")
+    assert order.index("silver_web_customers") < order.index("silver_party")
+
+
+def test_the_rendered_country_case_is_built_from_COUNTRY():
+    """Both runners conform identically BY CONSTRUCTION, not by coincidence.
+
+    dbt reads `country_variants` from dbt_project.yml; this reads `COUNTRY`;
+    `test_country_map_is_not_duplicated_by_accident` holds those two equal. So
+    a model rendered here conforms exactly as the same model does under dbt --
+    which is the property that makes this a runner over one definition rather
+    than a second definition wearing a renderer.
+    """
+    from contoso_product.silver_sql import conform_country_sql
+
+    sql = conform_country_sql("country")
+    for variant, canonical in COUNTRY.items():
+        assert f"when '{variant}' then '{canonical}'" in sql, variant
+    assert sql.count("when '") == len(COUNTRY)
