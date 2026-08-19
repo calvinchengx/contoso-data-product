@@ -167,3 +167,47 @@ def test_a_failure_in_an_optional_runtime_is_fatal_too(tmp_path):
         cwd=ROOT, capture_output=True, text=True, check=False)
     assert r.returncode == 1, (r.stdout, r.stderr)
     assert "airflow" in r.stderr and "revenue_summary_loses_no_revenue" in r.stderr
+
+
+def test_every_optional_runtime_is_checked_in_all_three_places(tmp_path):
+    """A family member added to two of the three lists would be compared,
+    reported as agreeing, and never asked whether its contracts passed.
+
+    The optional runtimes used to be enumerated separately in the aggregate
+    comparison, the agreement line and the contract check, so adding one meant
+    remembering all three. This asserts the newest member reaches every one of
+    them -- disagreeing numbers fail, agreement is reported by name, and a
+    contract failure fails even when the numbers match.
+    """
+    fabric, dbx, builtin = (tmp_path / n for n in ("f.json", "d.json", "b.json"))
+    _snap(fabric)
+    _snap(dbx)
+
+    def compare():
+        return subprocess.run(
+            [sys.executable, str(SCRIPT), "--fabric", str(fabric),
+             "--databricks", str(dbx), "--airflow-builtin", str(builtin)],
+            capture_output=True, text=True)
+
+    # 1. Its aggregates are compared against fabric.
+    _snap(builtin, revenue_usd="999")
+    r = compare()
+    assert r.returncode == 1, r.stdout
+    assert "airflow-builtin='999'" in r.stderr
+
+    # 2. It is named in the agreement line rather than silently along for the
+    #    ride -- "fabric and databricks agree" while a third ran is a weaker
+    #    claim reported as a stronger one.
+    _snap(builtin)
+    r = compare()
+    assert r.returncode == 0, r.stderr
+    assert "airflow-builtin" in r.stdout
+
+    # 3. Its own contracts are still checked once the numbers agree. This is
+    #    the half a partially-added runtime would skip, and it is the half that
+    #    says WHAT the agreed numbers are.
+    _snap(builtin, contract_failures=[{"contract": "money_is_never_stored_as_float",
+                                       "status": "fail", "failures": 1}])
+    r = compare()
+    assert r.returncode == 1, r.stdout
+    assert "money_is_never_stored_as_float" in r.stderr

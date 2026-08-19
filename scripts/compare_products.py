@@ -7,6 +7,8 @@ Reads the JSON each consumer wrote:
     --databricks  the sibling's equivalent
     --snowflake   optional gold snapshot; a dialect_gap key is a named gap, not a silent pass
     --airflow     optional gold snapshot from fabric-platform-airflow3
+    --airflow-builtin  optional; from fabric-platform-airflow-builtin, where
+                  the DAG runs inside Fabric's own Airflow rather than beside it
 
 
 The proof is not two green logs. Same aggregates, same contract names.
@@ -121,7 +123,18 @@ def main() -> int:
     p.add_argument("--databricks", type=Path, required=True)
     p.add_argument("--snowflake", type=Path, default=None)
     p.add_argument("--airflow", type=Path, default=None)
+    p.add_argument("--airflow-builtin", type=Path, default=None)
     args = p.parse_args()
+    # ENUMERATED ONCE. The optional runtimes were listed in three separate
+    # places -- the aggregate comparison, the agreement line and the contract
+    # check -- so adding a family member meant remembering all three, and a
+    # member added to two of them would be compared, reported as agreeing,
+    # and never asked whether its contracts passed.
+    optional = [
+        ("snowflake", args.snowflake),
+        ("airflow", args.airflow),
+        ("airflow-builtin", args.airflow_builtin),
+    ]
     a, b = load(args.fabric), load(args.databricks)
 
     errs: list[str] = []
@@ -144,7 +157,7 @@ def main() -> int:
 
     # Every OTHER runtime is compared against fabric the same way, and each is
     # optional: a family member that has not run is absent, not agreeing.
-    for flag, path in (("snowflake", args.snowflake), ("airflow", args.airflow)):
+    for flag, path in optional:
         if not path:
             continue
         s = load(path)
@@ -172,18 +185,14 @@ def main() -> int:
     # worth stating even when a contract failed, because "the numbers match and
     # a type contract does not" is a far more useful sentence than either half
     # alone. Then fail, below.
-    agreed = ["fabric", "databricks"]
-    if args.snowflake:
-        agreed.append("snowflake")
-    if args.airflow:
-        agreed.append("airflow")
+    agreed = ["fabric", "databricks"] + [f for f, path in optional if path]
     print(
         f"compare_products: {', '.join(agreed)} agree on "
         f"revenue_usd={a.get('revenue_usd')} contracts={a.get('contracts')}"
     )
 
     named = [("fabric", a), ("databricks", b)]
-    for flag, path in (("snowflake", args.snowflake), ("airflow", args.airflow)):
+    for flag, path in optional:
         if path:
             named.append((flag, load(path)))
     failing = [(n, contract_failures(s)) for n, s in named if contract_failures(s)]
