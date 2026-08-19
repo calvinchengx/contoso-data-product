@@ -9,6 +9,10 @@ Reads the JSON each consumer wrote:
     --airflow     optional gold snapshot from fabric-platform-airflow3
     --airflow-builtin  optional; from fabric-platform-airflow-builtin, where
                   the DAG runs inside Fabric's own Airflow rather than beside it
+    --databricks-airflow  optional; from databricks-platform-airflow3 -- the
+                  SAME engine and pins as --databricks with a different
+                  orchestrator, so a disagreement between those two has exactly
+                  one candidate explanation left
 
 
 The proof is not two green logs. Same aggregates, same contract names.
@@ -58,11 +62,16 @@ def load(path: Path) -> dict:
 def empty(snap: dict) -> str | None:
     """Why this snapshot is no evidence, or None if it carries some.
 
-    THE AGGREGATES ARE THE ONLY EVIDENCE. `contracts` is a glob of the shared
-    gold project's tests/ directory, so it is fully populated whether or not
-    that runtime ever built a row -- the databricks snapshot names five
+    THE AGGREGATES ARE THE ONLY EVIDENCE. `contracts` was a glob of the shared
+    gold project's tests/ directory, so it was fully populated whether or not
+    that runtime ever built a row -- the databricks snapshot named five
     contracts beside three zeros. Counting it as evidence is how a snapshot of
     nothing looked like a snapshot of something.
+
+    Some producers have since been fixed to name only the contracts they
+    actually executed, which makes the field better evidence THERE and no
+    better here: this script cannot tell which kind of snapshot it is holding,
+    so it goes on treating the aggregates as the only evidence.
 
     A single zero is a legitimate value; all three at once is a runtime that
     built no gold.
@@ -124,6 +133,7 @@ def main() -> int:
     p.add_argument("--snowflake", type=Path, default=None)
     p.add_argument("--airflow", type=Path, default=None)
     p.add_argument("--airflow-builtin", type=Path, default=None)
+    p.add_argument("--databricks-airflow", type=Path, default=None)
     args = p.parse_args()
     # ENUMERATED ONCE. The optional runtimes were listed in three separate
     # places -- the aggregate comparison, the agreement line and the contract
@@ -134,6 +144,7 @@ def main() -> int:
         ("snowflake", args.snowflake),
         ("airflow", args.airflow),
         ("airflow-builtin", args.airflow_builtin),
+        ("databricks-airflow", args.databricks_airflow),
     ]
     a, b = load(args.fabric), load(args.databricks)
 
