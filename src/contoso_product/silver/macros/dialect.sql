@@ -22,15 +22,37 @@
   Snowflake: `, lateral flatten(input => col) alias`    -- a join
   DuckDB:    `, unnest(col) as alias`
 
+  `fields` NAMES THE ELEMENT'S COLUMNS, and it exists so the MODEL does not have
+  to branch. Spark's `explode ... as line` binds `line` to the element itself,
+  so `line.line_no` is a field of it. Snowflake's `flatten` binds `line` to a
+  RELATION whose element is `line.value`, and reaching into it is `line.value:
+  line_no` -- a different spelling in every reference, not just in the clause.
+  Projecting the fields back to their Spark names inside the lateral means the
+  five references in silver_web_order_lines are identical on every engine.
+
+  AND THEIR TYPES WITH THEM. FLATTEN hands back VARIANT, so an unwrapped field
+  is a document: `cast(quantity as int) * unit_price` becomes INTEGER times
+  JSON and the engine refuses it. The model already knows what each field is --
+  it casts them one line later -- so it says so here and the lateral casts once,
+  where Spark's explode gives typed struct fields for free.
+
+  Found the hard way: without this, `explode_array` fixed the FROM clause and
+  left `cast(line.line_no as int)` untouched, so silver failed on Snowflake at
+  the first column of the exploded row -- with the clause it had just been given
+  looking correct.
+
   The whole clause is emitted, not just the function, because the three are not
   the same shape: Spark's LATERAL VIEW is its own syntax, and the others are
   table functions in the FROM list. A macro that returned only the function name
   would leave every caller to get the surrounding punctuation right per engine,
   which is exactly the duplication this avoids.
 -#}
-{% macro explode_array(col, alias) -%}
+{% macro explode_array(col, alias, fields={}) -%}
   {%- if target.type in ['snowflake'] -%}
-    , lateral flatten(input => {{ col }}) {{ alias }}
+    , lateral (select
+      {%- for f, ty in fields.items() %} v.value:{{ f }}::{{ ty }} as {{ f }}
+      {{- "," if not loop.last }}{% endfor %}
+      from lateral flatten(input => {{ col }}) v) {{ alias }}
   {%- elif target.type in ['duckdb'] -%}
     , unnest({{ col }}) as {{ alias }}
   {%- else -%}

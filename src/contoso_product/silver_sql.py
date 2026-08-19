@@ -50,10 +50,9 @@ _CONFORM = re.compile(r"^conform_country\(\s*'(?P<col>.*)'\s*\)$", re.DOTALL)
 # because Snowflake and DuckDB cannot say these three things Spark's way; the
 # Spark side is unchanged, and that is the point: one definition, one branch.
 _EXPLODE = re.compile(
-    r"^explode_array\(\s*'(?P<col>[^']*)'\s*,\s*'(?P<alias>[^']*)'\s*\)$", re.DOTALL
-)
-_EXPLODED_VALUE = re.compile(
-    r"^exploded_value\(\s*'(?P<alias>[^']*)'\s*\)$", re.DOTALL
+    r"^explode_array\(\s*'(?P<col>[^']*)'\s*,\s*'(?P<alias>[^']*)'\s*"
+    r"(?:,\s*[\[{][^\]}]*[\]}]\s*)?\)$",
+    re.DOTALL,
 )
 _DATE_SERIES = re.compile(
     r"^date_series\(\s*'(?P<bounds>[^']*)'\s*,\s*'(?P<lo>[^']*)'\s*,"
@@ -124,10 +123,6 @@ def render(sql: str, *, sources: dict[str, str], refs: dict[str, str]) -> str:
         m = _EXPLODE.match(body)
         if m:
             return f"lateral view explode({m.group('col')}) exploded as {m.group('alias')}"
-        m = _EXPLODED_VALUE.match(body)
-        if m:
-            # Spark hands back the element itself; only Snowflake wraps it.
-            return m.group("alias")
         m = _DATE_SERIES.match(body)
         if m:
             b, lo, hi = m.group("bounds"), m.group("lo"), m.group("hi")
