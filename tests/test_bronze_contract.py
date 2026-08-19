@@ -11,21 +11,36 @@ ROOT = pathlib.Path(__file__).resolve().parent.parent
 SILVER = ROOT / "src" / "contoso_product" / "silver"
 
 
-def test_every_bronze_source_declares_its_columns():
-    """A source added without columns is a contract nobody can check.
+def sources_models_actually_read() -> set[str]:
+    """The bronze sources a silver model references, read from the models."""
+    out = set()
+    for model in (SILVER / "models").glob("*.sql"):
+        out |= set(re.findall(r"source\('bronze', var\('([a-z_]+)'\)\)", model.read_text(encoding="utf-8")))
+    return out
 
-    The prose in sources.yml has always said the shape is not negotiable. It
-    said so while nothing verified it, and a platform landed its JSON feeds in
-    a single `doc` column -- which silver reported four layers later as
-    `Binder Error: Table "o" does not have a column named "lines"`.
+
+def test_the_contract_covers_exactly_what_silver_reads():
+    """Every source a model reads declares its columns, and no source that
+    nothing reads carries a contract.
+
+    Both halves were learned the hard way. The first is the point of the
+    contract at all. The second is a correction: this file's first version
+    declared columns for `bronze_web_products` and `bronze_erp_customer_changes`,
+    which NO model reads -- seven column names invented for one of them, and
+    four for the other that happened to match by luck. The invented list failed
+    against a real bronze and accused the platform of a breach that was the
+    contract's own.
+
+    A contract for a table nobody reads cannot be verified against anything,
+    so it is a claim with no way of being wrong.
     """
-    declared = bronze_contract()
-    names = re.findall(r"- name: \"\{\{ var\('([a-z_]+)'\) \}\}\"", (SILVER / "models" / "sources.yml").read_text(encoding="utf-8"))
-    assert names, "sources.yml names no bronze tables"
-    missing = [n for n in names if n not in declared]
-    assert not missing, (
-        f"these bronze sources declare no columns: {missing}. A source without "
-        f"a column list cannot be checked, so silver finds out inside a model"
+    declared = set(bronze_contract())
+    read = sources_models_actually_read()
+    assert read, "no model references a bronze source; the parser is wrong"
+    assert declared == read, (
+        f"the contract and the models disagree.\n"
+        f"  declared but unread: {sorted(declared - read)}\n"
+        f"  read but undeclared: {sorted(read - declared)}"
     )
 
 
@@ -70,7 +85,10 @@ def test_case_does_not_decide_it():
 
 def test_the_contract_is_not_empty():
     contract = bronze_contract()
-    assert len(contract) >= 8, contract
+    assert len(contract) == 6, (
+        f"six bronze sources are read by a silver model; the contract has "
+        f"{len(contract)}: {sorted(contract)}"
+    )
     assert "lines" in contract["bronze_web_orders"], (
         "the column whose absence started this must be in the contract"
     )
