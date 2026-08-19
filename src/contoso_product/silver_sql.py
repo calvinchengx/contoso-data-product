@@ -44,6 +44,21 @@ _REF = re.compile(r"^ref\(\s*'(?P<name>[^']*)'\s*\)$", re.DOTALL)
 _MONEY = re.compile(r"^money\(\s*'(?P<col>.*)'\s*\)$", re.DOTALL)
 _RATE = re.compile(r"^rate\(\s*'(?P<col>.*)'\s*\)$", re.DOTALL)
 _CONFORM = re.compile(r"^conform_country\(\s*'(?P<col>.*)'\s*\)$", re.DOTALL)
+# The dialect macros. This renderer targets SPARK -- it feeds the PySpark path,
+# which runs against the same engine dbt-fabricspark and dbt-databricks do -- so
+# each of these renders the Spark branch of the corresponding macro. They exist
+# because Snowflake and DuckDB cannot say these three things Spark's way; the
+# Spark side is unchanged, and that is the point: one definition, one branch.
+_EXPLODE = re.compile(
+    r"^explode_array\(\s*'(?P<col>[^']*)'\s*,\s*'(?P<alias>[^']*)'\s*\)$", re.DOTALL
+)
+_EXPLODED_VALUE = re.compile(
+    r"^exploded_value\(\s*'(?P<alias>[^']*)'\s*\)$", re.DOTALL
+)
+_DATE_SERIES = re.compile(
+    r"^date_series\(\s*'(?P<bounds>[^']*)'\s*,\s*'(?P<lo>[^']*)'\s*,"
+    r"\s*'(?P<hi>[^']*)'\s*\)$", re.DOTALL
+)
 
 
 def conform_country_sql(col: str) -> str:
@@ -106,6 +121,22 @@ def render(sql: str, *, sources: dict[str, str], refs: dict[str, str]) -> str:
         m = _CONFORM.match(body)
         if m:
             return conform_country_sql(m.group("col"))
+        m = _EXPLODE.match(body)
+        if m:
+            return f"lateral view explode({m.group('col')}) exploded as {m.group('alias')}"
+        m = _EXPLODED_VALUE.match(body)
+        if m:
+            # Spark hands back the element itself; only Snowflake wraps it.
+            return m.group("alias")
+        m = _DATE_SERIES.match(body)
+        if m:
+            b, lo, hi = m.group("bounds"), m.group("lo"), m.group("hi")
+            return (
+                f"select date_add(b.{lo}, cast(s.pos as int)) as rate_date\n"
+                f"    from {b} b\n"
+                f"    lateral view posexplode("
+                f"split(space(datediff(b.{hi}, b.{lo})), ' ')) s as pos, val"
+            )
         unknown.append(body)
         return match.group(0)
 

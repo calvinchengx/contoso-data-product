@@ -32,4 +32,4 @@ select
     -- layers from the decision that caused it.
     'USD' as currency
 from {{ source('bronze', var('bronze_web_orders')) }} as o
-lateral view explode(o.lines) exploded as line
+{{ explode_array('o.lines', 'line') }}

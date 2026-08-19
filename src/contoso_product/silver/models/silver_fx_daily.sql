@@ -14,9 +14,12 @@ bounds as (
     select min(rate_date) as lo, max(rate_date) as hi from quotes
 ),
 calendar as (
-    select date_add(b.lo, cast(s.pos as int)) as rate_date
-    from bounds b
-    lateral view posexplode(split(space(datediff(b.hi, b.lo)), ' ')) s as pos, val
+    -- A dense day-by-day calendar between the first and last quote. Spark has
+    -- no series generator, so this was written as "a string of spaces as long
+    -- as the span, exploded positionally" -- correct, and meaningless on an
+    -- engine that simply has generate_series. The macro says the intent once
+    -- and lets each engine spell it.
+    {{ date_series('bounds', 'lo', 'hi') }}
 ),
 dense as (
     select c.rate_date, q.currency
