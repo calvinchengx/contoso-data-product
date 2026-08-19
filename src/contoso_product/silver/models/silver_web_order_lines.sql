@@ -32,4 +32,5 @@ select
     -- layers from the decision that caused it.
     'USD' as currency
 from {{ source('bronze', var('bronze_web_orders')) }} as o
-{{ explode_array('o.lines', 'line') }}
+{{ explode_array('o.lines', 'line', {'line_no': 'int', 'product_id': 'string',
+                                     'quantity': 'int', 'unit_price': 'decimal(19,4)'}) }}
