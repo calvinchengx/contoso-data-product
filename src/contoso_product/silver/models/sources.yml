@@ -71,11 +71,6 @@ sources:
           - name: status
           - name: lines
       - name: "{{ var('bronze_web_products') }}"
-        columns:
-          - name: product_id
-          - name: name
-          - name: category
-          - name: price
       - name: "{{ var('bronze_ref_product_hierarchy') }}"
         columns:
           - name: product_id
@@ -90,11 +85,3 @@ sources:
           - name: rate_date
           - name: rate_to_usd
       - name: "{{ var('bronze_erp_customer_changes') }}"
-        columns:
-          - name: customer_id
-          - name: op
-          - name: email
-          - name: country
-          - name: marketing_segment
-          - name: loyalty_tier
-          - name: change_seq
