@@ -5,10 +5,13 @@ This package does not import fabric-target or databricks-target.
 """
 
 from .bronze import run_bronze
+from .bronze_contract import bronze_contract, check_bronze
 from .silver import COUNTRY, MONEY, RATE, run_silver
 
 __all__ = [
     "COUNTRY",
+    "bronze_contract",
+    "check_bronze",
     "MONEY",
     "RATE",
     "gold_dir",

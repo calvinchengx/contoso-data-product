@@ -31,10 +31,70 @@ sources:
     schema: "{{ env_var('DBT_BRONZE_SCHEMA', 'bronze') }}"
     tables:
       - name: "{{ var('bronze_pos_customers') }}"
+        columns:
+          - name: customer_id
+          - name: name
+          - name: email
+          - name: country
+          - name: marketing_segment
+          - name: loyalty_tier
       - name: "{{ var('bronze_pos_orders') }}"
+        columns:
+          - name: order_id
+          - name: customer_id
+          - name: product_id
+          - name: order_date
+          - name: channel
+          - name: store_id
+          - name: currency
+          - name: discount_pct
+          - name: tax_rate
+          - name: shipping_fee
+          - name: payment_method
+          - name: is_gift
+          - name: promo_code
+          - name: quantity
+          - name: unit_price
+          - name: status
+          - name: event_seq
       - name: "{{ var('bronze_web_customers') }}"
+        columns:
+          - name: email
+          - name: full_name
+          - name: country
+          - name: signup_ts
       - name: "{{ var('bronze_web_orders') }}"
+        columns:
+          - name: web_order_id
+          - name: email
+          - name: placed_at
+          - name: status
+          - name: lines
       - name: "{{ var('bronze_web_products') }}"
+        columns:
+          - name: product_id
+          - name: name
+          - name: category
+          - name: price
       - name: "{{ var('bronze_ref_product_hierarchy') }}"
+        columns:
+          - name: product_id
+          - name: product_name
+          - name: category
+          - name: department
+          - name: segment
+          - name: list_price_usd
       - name: "{{ var('bronze_ref_fx_rates') }}"
+        columns:
+          - name: currency
+          - name: rate_date
+          - name: rate_to_usd
       - name: "{{ var('bronze_erp_customer_changes') }}"
+        columns:
+          - name: customer_id
+          - name: op
+          - name: email
+          - name: country
+          - name: marketing_segment
+          - name: loyalty_tier
+          - name: change_seq
