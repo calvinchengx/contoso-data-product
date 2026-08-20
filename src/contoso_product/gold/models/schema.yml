@@ -144,6 +144,12 @@ models:
     columns:
       - name: revenue_usd
         tests: [not_null]
+      # sale_lines is one of the three numbers the family compares
+      # (compare_products KEYS), and it was the only one of them whose column
+      # carried no contract. The semantic model derives its columns from this
+      # block, which is what surfaced the gap.
+      - name: sale_lines
+        tests: [not_null]
       - name: cancelled_revenue_usd
         tests: [not_null]
       - name: fiscal_year_label
