@@ -5,7 +5,7 @@ empty cells get filled. **This file changes; that one should not.** When a
 cell turns green, the PR that did it updates the row here and points at the
 snapshot.
 
-_Last updated: 2026-08-19._
+_Last updated: 2026-08-20._
 
 ## Where every cell stands
 
