@@ -125,3 +125,47 @@ def test_model_bim_refuses_to_guess_the_binding():
         semantic.model_bim("", "dbo")
     with pytest.raises(ValueError, match="refusing to guess"):
         semantic.model_bim("let Source = x in Source", "  ")
+
+
+def _money_like_fragments() -> list[str]:
+    """The substrings `money_is_never_stored_as_float` treats as money.
+
+    READ FROM THE CONTRACT, not restated here. The contract's own comment says
+    it matches by NAME on purpose -- "the next money column somebody adds is
+    exactly the one that would slip through" -- so a second copy of that list
+    in this file would be the drift the whole repo is built to prevent. Same
+    reason COLUMNS is checked against schema.yml rather than trusted.
+    """
+    sql = (_CORE / "src" / "contoso_product" / "gold" / "tests"
+           / "money_is_never_stored_as_float.sql").read_text(encoding="utf-8")
+    m = re.search(r"\{%\s*set money_like\s*=\s*\[(.*?)\]\s*%\}", sql, re.DOTALL)
+    assert m, "money_like not found in the contract -- the scan proved nothing"
+    fragments = re.findall(r"'([^']+)'", m.group(1))
+    assert fragments, "no fragments parsed -- the scan proved nothing"
+    return fragments
+
+
+def test_money_columns_are_declared_exact_in_the_model():
+    """A column the warehouse must store as decimal is not served as a double.
+
+    The gold contract already refuses a binary float in the WAREHOUSE. This is
+    the same rule one layer out: the model that serves those columns must not
+    widen them back on the way to a BI client. It changes nothing against this
+    family's emulator, whose evaluator sums float64 whatever a column declares
+    -- which is exactly why a test is needed. Nothing measurable here would
+    catch it, and real Fabric honours the declared type.
+    """
+    exact = ("decimal", "numeric")
+    fragments = _money_like_fragments()
+    checked = []
+    for name, dtype in semantic.COLUMNS:
+        if any(f in name.lower() for f in fragments):
+            checked.append(name)
+            assert dtype.lower().startswith(exact), (
+                f"{name!r} is named like money (matches one of {fragments}) "
+                f"but the model declares it {dtype!r}; money is exact, "
+                f"base-10 and fixed-scale -- see "
+                f"gold/tests/money_is_never_stored_as_float.sql")
+    assert checked, (
+        f"no modelled column matched {fragments} -- either the contract's "
+        f"fragments changed or this test is now vacuous")
