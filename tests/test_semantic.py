@@ -77,6 +77,10 @@ def test_every_family_number_has_a_measure():
 
     spec = util.spec_from_file_location(
         "compare_products", _CORE / "scripts" / "compare_products.py")
+    # Asserted, not cast: both are Optional, and a script that moved should
+    # fail this test by name rather than as an AttributeError three frames
+    # down.
+    assert spec and spec.loader, "compare_products.py not importable from scripts/"
     cp = util.module_from_spec(spec)
     spec.loader.exec_module(cp)
     numeric = [k for k in cp.KEYS if k != "contracts"]
