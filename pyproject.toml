@@ -9,6 +9,13 @@ description = "Portable Contoso data product: bronze/silver Spark logic, gold db
 requires-python = ">=3.12"
 dependencies = []
 
+# Declared so `contoso_product.show` can build permalinks without writing a URL
+# into core code: RULES.md forbids core code addressing anything, and reading
+# it from package metadata also gives this repository one source of truth for
+# its own location rather than a literal in a module.
+[project.urls]
+Repository = "https://github.com/calvinchengx/contoso-data-product"
+
 [project.optional-dependencies]
 compare = ["requests>=2.32"]
 
