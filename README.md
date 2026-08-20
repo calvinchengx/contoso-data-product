@@ -20,7 +20,7 @@ status is [`docs/01-plan.md`](docs/01-plan.md); what may live where is
 |  | Fabric | Databricks | Snowflake |
 |---|---|---|---|
 | **Airflow 3** | ✅ | ✅ | ✅ |
-| **engine-native** | ✅ | 🟡 | 🟡 |
+| **engine-native** | ✅ | ✅ | 🟡 |
 | **built-in Airflow** | ✅ | — | — |
 
 ## Why this is its own repository
