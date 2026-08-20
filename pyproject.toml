@@ -4,7 +4,7 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "contoso-data-product"
-version = "0.3.1"
+version = "0.4.0"
 description = "Portable Contoso data product: bronze/silver Spark logic, gold dbt SQL, ODCS contracts. Consumers wrap it; they do not restate it."
 requires-python = ">=3.12"
 dependencies = []
