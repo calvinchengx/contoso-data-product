@@ -50,20 +50,38 @@ select
     calendar_month,
     {{ date_quarter('date_key') }} as calendar_quarter,
     fiscal_year,
-    -- CAST, BECAUSE `/` DOES NOT MEAN THE SAME THING ON BOTH ENGINES. T-SQL
-    -- divides two ints and gives an int; Spark's `/` is always double
-    -- division, so this column arrived as `fiscal_quarter` 1.0 rather than 1
-    -- on the Databricks runtime -- and `accepted_values` for [1,2,3,4] failed
-    -- there while passing on Fabric, from one shared model. Truncation toward
-    -- zero is what both do to a non-negative value, so the cast makes the two
-    -- agree rather than choosing between them.
-    cast(fiscal_month_index / 3 as int) + 1 as fiscal_quarter,
+    -- FLOOR, BECAUSE `/` AND `cast(... as int)` BOTH DIFFER ACROSS ENGINES.
+    --
+    -- The division half was found first: T-SQL divides two ints and gives an
+    -- int; Spark's `/` is always double division, so this column arrived as
+    -- `fiscal_quarter` 1.0 rather than 1 on the Databricks runtime, and
+    -- `accepted_values` for [1,2,3,4] failed there while passing on Fabric.
+    --
+    -- THE CAST HALF WAS FOUND WHEN A THIRD ENGINE ARRIVED, and the comment
+    -- that used to sit here is why it took so long. It said truncation toward
+    -- zero "is what both do" -- TRUE OF T-SQL AND SPARK, and it expired
+    -- silently when Snowflake joined the family. Snowflake and duckdb ROUND a
+    -- cast to integer; T-SQL and Spark TRUNCATE. Measured, both directions:
+    --
+    --     cast(2/3 as int)   ->  0 on T-SQL,  1 on duckdb/Snowflake
+    --     cast(floor(2/3) as int) -> 0 on both
+    --
+    -- June is fiscal_month_index 2, so rounding put it in Q2 with July instead
+    -- of Q1 -- every day in a 30-day window got ONE fiscal quarter, and
+    -- `both_selling_systems_reach_the_pack` fired its "covers only one fiscal
+    -- quarter" clause on Snowflake alone. No row count could see it: the
+    -- numbers were right and the CALENDAR was wrong.
+    --
+    -- `floor` is the operation actually wanted and every engine agrees on it.
+    -- For non-negative values it is identical to truncation, so this changes
+    -- nothing on Fabric or Databricks.
+    cast(floor(fiscal_month_index / 3) as int) + 1 as fiscal_quarter,
     fiscal_month_index + 1     as fiscal_period,
     -- The label a report writer actually puts on an axis. Built here so every
     -- surface spells it the same way.
     {{ str_concat("'FY'", "right(cast(fiscal_year as " ~ varchar_n(4) ~ "), 2)") }} as fiscal_year_label,
     {{ str_concat(
         str_concat("'FY'", "right(cast(fiscal_year as " ~ varchar_n(4) ~ "), 2)"),
-        str_concat("' Q'", "cast(cast(fiscal_month_index / 3 as int) + 1 as " ~ varchar_n(1) ~ ")")
+        str_concat("' Q'", "cast(cast(floor(fiscal_month_index / 3) as int) + 1 as " ~ varchar_n(1) ~ ")")
     ) }} as fiscal_quarter_label
 from parts

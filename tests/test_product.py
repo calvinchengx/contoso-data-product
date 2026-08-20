@@ -136,6 +136,30 @@ def test_integer_division_is_never_left_to_the_dialect():
             assert "cast(" in line, (
                 "an integer division is left to the dialect to type: " + line.strip()
             )
+            # AND THE ROUNDING HALF, which this test used to miss entirely.
+            #
+            # A cast alone only fixes the TYPE. It does not fix the VALUE,
+            # because `cast(<fraction> as int)` is not one operation across
+            # this family: T-SQL and Spark TRUNCATE, Snowflake and duckdb
+            # ROUND. Measured both ways:
+            #
+            #     cast(2/3 as int)         ->  0 on T-SQL, 1 on Snowflake
+            #     cast(floor(2/3) as int)  ->  0 on both
+            #
+            # June is fiscal_month_index 2, so rounding moved it out of Q1 and
+            # collapsed a 30-day window into ONE fiscal quarter on Snowflake
+            # alone -- passing every row count while the calendar was wrong,
+            # and firing `both_selling_systems_reach_the_pack` there only.
+            #
+            # The comment this test was written from said truncation "is what
+            # both do", which was TRUE OF THE TWO ENGINES THAT EXISTED THEN and
+            # expired without a word when a third arrived. That is why the
+            # assertion is on the OPERATION rather than on the two engines
+            # believed to agree about it.
+            assert "floor(" in line, (
+                "a division is cast to int without floor, so its value depends "
+                "on whether the engine rounds or truncates: " + line.strip()
+            )
 
 
 # --- RULES.md: what may and may not live in the core -------------------------
