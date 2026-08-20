@@ -24,3 +24,15 @@ where = ["src"]
 # package would surface as a dbt compilation error in a consumer's CI, naming
 # a path rather than the omission that caused it.
 contoso_product = ["py.typed", "gold/**/*", "silver/**/*"]
+
+[tool.ruff]
+line-length = 100
+target-version = "py312"
+
+[tool.ty.rules]
+# Unresolved by CONSTRUCTION, not by mistake. The Spark imports are
+# function-local and pyspark is deliberately NOT a dependency of this package:
+# the engine provides the session, and this product runs on three of them.
+# Declaring pyspark to satisfy a checker would pin a Spark version into a
+# package whose whole claim is that it does not choose one.
+unresolved-import = "ignore"
