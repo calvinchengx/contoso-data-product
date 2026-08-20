@@ -200,13 +200,75 @@ def check(readme: Path) -> tuple[bool, str]:
     )
 
 
+def latest_release(timeout: float = 10.0) -> str:
+    """The newest published version of this product, from its own repository.
+
+    A LEAF CANNOT ANSWER THIS ALONE. `version()` reports whatever the leaf
+    installed, which IS its pin, so a stale leaf reading its own package
+    concludes it is current. The authority has to be outside it, and the
+    releases are that authority.
+    """
+    import json
+    import urllib.request
+
+    home = repository()
+    if not home:
+        raise RuntimeError("the package declares no Repository URL to ask")
+    # BUILT FROM THE DECLARED REPOSITORY, not written down. RULES.md forbids core
+    # code addressing anything, and `test_no_engine_named_in_core` enforces it by
+    # banning a literal scheme in a string. Deriving the API host from the URL
+    # already in metadata obeys both the rule and the reason for it.
+    url = home.rstrip("/").replace("//github.com/", "//api.github.com/repos/") + "/releases/latest"
+    request = urllib.request.Request(url, headers={"Accept": "application/vnd.github+json"})
+    import os
+
+    token = os.environ.get("GITHUB_TOKEN")
+    if token:
+        request.add_header("Authorization", f"Bearer {token}")
+    with urllib.request.urlopen(request, timeout=timeout) as response:
+        return json.load(response)["tag_name"].lstrip("v")
+
+
+def check_pin() -> tuple[bool, str]:
+    """Is the installed product the newest release?
+
+    NETWORK ON PURPOSE, and it is not an imposition: a leaf installs this
+    package from a GitHub release in the first place, so a leaf that cannot
+    reach GitHub cannot resolve its own dependencies either. A failure to ask
+    is reported as a failure rather than skipped, because a check that quietly
+    skips is the "accepted but inert" trap this family keeps finding.
+    """
+    have = version()
+    try:
+        newest = latest_release()
+    except Exception as error:  # noqa: BLE001 - the reason matters more than the type
+        return False, (
+            f"could not ask which release is newest ({error}). This check needs "
+            f"the network, the same as installing this package does."
+        )
+    if have == newest:
+        return True, f"the pinned product is the newest release, v{have}"
+    return False, (
+        f"this repository pins contoso-data-product v{have}, but v{newest} is "
+        f"released. Every leaf tracks one version, with no exception, so that "
+        f"the product cannot mean different things in different cells. "
+        f"Update the pin in pyproject.toml and re-lock."
+    )
+
+
 def main(argv: list[str] | None = None) -> int:
     parser = argparse.ArgumentParser(prog="contoso_product.show", description=__doc__.splitlines()[0])
     parser.add_argument("--into", metavar="DIR", help="copy the product's dbt projects here and print the path")
     parser.add_argument("--markdown", action="store_true", help="emit the README inventory block")
+    parser.add_argument("--check-pin", action="store_true", dest="check_pin",
+                        help="fail unless the installed product is the newest release")
     parser.add_argument("--check", metavar="README", help="fail if that README's block is not what this version contains")
     args = parser.parse_args(argv)
 
+    if args.check_pin:
+        ok, message = check_pin()
+        print(message)
+        return 0 if ok else 1
     if args.check:
         ok, message = check(Path(args.check))
         print(message)
