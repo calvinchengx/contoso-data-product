@@ -40,3 +40,30 @@ jobs:
           tag="${{ github.ref_name }}"
           gh release view "$tag" >/dev/null 2>&1 || gh release create "$tag" --title "$tag" --generate-notes --verify-tag
           gh release upload "$tag" dist/*.whl --clobber
+
+  bump-leaves:
+    name: Open the pin bump on every leaf
+    needs: wheel
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v7
+      # AFTER the wheel is attached, not beside it. A leaf's bump PR points at a
+      # release asset, so opening it while the asset is still uploading tells
+      # seven repositories to resolve a URL that is not there yet. fabric-emulator
+      # learned this the expensive way: its dispatch beat the image it announced
+      # by 7m46s.
+      - name: Bump every leaf
+        env:
+          # Needs `contents: write` and `pull_requests: write` on the seven leaf
+          # repositories. Without it the release still ships and nothing
+          # downstream moves, so the step fails loudly rather than skipping.
+          GH_TOKEN: ${{ secrets.LEAF_BUMP_TOKEN }}
+        run: |
+          if [ -z "$GH_TOKEN" ]; then
+            echo "::error::LEAF_BUMP_TOKEN is not set. The release shipped, but " \
+                 "no leaf was told, and every leaf's --check-pin will now fail " \
+                 "until someone bumps them by hand."
+            exit 1
+          fi
+          python3 scripts/bump_leaves.py

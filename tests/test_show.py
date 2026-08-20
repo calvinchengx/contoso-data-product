@@ -103,3 +103,74 @@ def test_this_repository_s_own_readme_carries_a_current_inventory():
     readme = Path(__file__).resolve().parent.parent / "README.md"
     ok, message = show.check(readme)
     assert ok, message
+
+
+def test_check_pin_compares_against_the_release_not_the_package(monkeypatch):
+    """A stale leaf must not be able to declare itself current.
+
+    `version()` reports what the leaf installed, which IS its pin, so a check
+    that compared the package to itself would pass on every leaf however far
+    behind it was. The authority is the newest release.
+    """
+    monkeypatch.setattr(show, "version", lambda: "0.1.0")
+    monkeypatch.setattr(show, "latest_release", lambda timeout=10.0: "0.5.0")
+    ok, message = show.check_pin()
+    assert not ok
+    assert "v0.1.0" in message and "v0.5.0" in message
+
+    monkeypatch.setattr(show, "version", lambda: "0.5.0")
+    ok, message = show.check_pin()
+    assert ok, message
+
+
+def test_an_unreachable_release_api_fails_rather_than_skips(monkeypatch):
+    """Skipping is how a check becomes decoration.
+
+    A leaf installs this package from a GitHub release, so a leaf that cannot
+    reach GitHub cannot resolve its dependencies either. Reporting that as a
+    pass would leave the pin unchecked exactly when nobody could tell.
+    """
+    def unreachable(timeout=10.0):
+        raise OSError("no route to host")
+
+    monkeypatch.setattr(show, "latest_release", unreachable)
+    ok, message = show.check_pin()
+    assert not ok
+    assert "network" in message
+
+
+def test_the_bump_script_moves_both_pin_forms():
+    """Two forms are in use, and rewriting only one would skip leaves silently.
+
+    Five leaves pin a release wheel URL and one pins a git tag. A regex written
+    for whichever form the author had in front of them is exactly how a leaf
+    gets left behind while the sweep reports success.
+    """
+    import importlib.util
+    from pathlib import Path
+
+    spec = importlib.util.spec_from_file_location(
+        "bump_leaves", Path(__file__).resolve().parent.parent / "scripts" / "bump_leaves.py"
+    )
+    assert spec is not None and spec.loader is not None, "bump_leaves.py is not importable"
+    bump = importlib.util.module_from_spec(spec)
+    spec.loader.exec_module(bump)
+
+    wheel = (
+        'contoso-data-product = { url = "https://github.com/calvinchengx/contoso-data-product'
+        '/releases/download/v0.1.6/contoso_data_product-0.1.6-py3-none-any.whl" }'
+    )
+    moved = bump.repin(wheel, "0.5.0")
+    assert "v0.5.0/contoso_data_product-0.5.0-py3-none-any.whl" in moved
+    assert "0.1.6" not in moved
+
+    tag = (
+        'contoso-data-product = { git = "https://github.com/calvinchengx/'
+        'contoso-data-product.git", tag = "v0.4.0" }'
+    )
+    moved = bump.repin(tag, "0.5.0")
+    assert 'tag = "v0.5.0"' in moved
+
+    # And a pin already current must be left alone, so the script can run on
+    # every release without opening seven no-op pull requests.
+    assert bump.repin(bump.repin(wheel, "0.5.0"), "0.5.0") == bump.repin(wheel, "0.5.0")
