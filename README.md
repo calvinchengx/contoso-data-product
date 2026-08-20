@@ -15,11 +15,13 @@ layout is [`docs/00-family.md`](docs/00-family.md); the plan and every cell's
 status is [`docs/01-plan.md`](docs/01-plan.md); what may live where is
 [`RULES.md`](RULES.md).
 
+<!-- Derived from docs/01-plan.md by scripts/render_matrix.py; run it with --write.
+     Edit the plan, not this table: tests/test_matrix_is_derived.py fails if they drift. -->
 |  | Fabric | Databricks | Snowflake |
 |---|---|---|---|
-| **Airflow 3** | ✅ | ⬜ | ⬜ |
-| **engine-native** | ✅ | 🟡 | 🔴 |
-| **built-in Airflow** | ⬜ | — | — |
+| **Airflow 3** | ✅ | ✅ | ✅ |
+| **engine-native** | ✅ | 🟡 | 🟡 |
+| **built-in Airflow** | ✅ | — | — |
 
 ## Why this is its own repository
 
