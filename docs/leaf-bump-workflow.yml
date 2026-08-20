@@ -32,17 +32,21 @@ jobs:
     steps:
       - uses: actions/checkout@v7
       - uses: astral-sh/setup-uv@v7
+      # A GIT URL, not a bare name. This package is published as a GitHub
+      # release wheel and is not on PyPI, so `--with contoso-data-product`
+      # fails with `not found in the package registry`. Caught by running the
+      # template's own command before deploying it to seven repositories.
       # `--update-pin` exits non-zero when there is nothing to do, so a day with
       # no release ends here rather than opening an empty pull request.
       - id: bump
         continue-on-error: true
-        run: uv run --no-project --with contoso-data-product python -m contoso_product.show --update-pin pyproject.toml
+        run: uv run --no-project --with "contoso-data-product @ git+https://github.com/calvinchengx/contoso-data-product" python -m contoso_product.show --update-pin pyproject.toml
       - if: steps.bump.outcome == 'success'
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: |
-          version=$(uv run --no-project --with contoso-data-product python -c \
-            "from contoso_product import show; print(show.latest_release())")
+          version=$(uv run --no-project --with "contoso-data-product @ git+https://github.com/calvinchengx/contoso-data-product" \
+            python -c "from contoso_product import show; print(show.latest_release())")
           branch="chore/product-v$version"
           git config user.name  "github-actions[bot]"
           git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
