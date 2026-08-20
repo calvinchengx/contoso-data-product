@@ -7,6 +7,14 @@ happens when keeping current is somebody's memory. The `--check-pin` gate makes
 drift impossible to ignore, and this makes it rare, which is the half that
 stops the gate becoming noise everyone learns to scroll past.
 
+PREFER THE LEAF-SIDE WORKFLOW. `docs/leaf-bump-workflow.yml` does the same job
+from inside each leaf using the `GITHUB_TOKEN` that workflow already has, so no
+cross-repository secret exists to over-scope or expire. This script needs
+`LEAF_BUMP_TOKEN` with write on all seven, and when that expires all seven stop
+at once with nothing to say so. It stays for the case the leaf-side schedule
+cannot serve: bumping every leaf the instant a release lands, rather than within
+a day.
+
 ONE IMPLEMENTATION, NOT SEVEN WORKFLOWS. A `repository_dispatch` per leaf would
 need a receiving workflow in each, so the mechanism would live seven times and
 drift the way seven copies of anything drift. This edits each leaf through the
@@ -81,27 +89,13 @@ def many(*args: str) -> list:
 def repin(text: str, version: str) -> str:
     """Move whichever form of the pin this leaf uses.
 
-    Two forms are in use and both are legitimate: a release wheel URL, and a git
-    tag. Rewriting only the one this repository happens to prefer would silently
-    skip the others, which is the failure this script exists to prevent.
+    Delegates to the package so the leaf-side workflow and this script cannot
+    disagree about what a pin looks like. Two copies of a regex that has to
+    match two forms is how one form quietly stops being rewritten.
     """
-    wheel = (
-        f"https://github.com/{OWNER}/{PRODUCT}/releases/download/"
-        f"v{version}/contoso_data_product-{version}-py3-none-any.whl"
-    )
-    moved = re.sub(
-        rf'({PRODUCT} = {{ url = )"[^"]+"',
-        lambda m: f'{m.group(1)}"{wheel}"',
-        text,
-    )
-    if moved != text:
-        return moved
-    return re.sub(
-        rf'({PRODUCT} = {{ git = "[^"]+", tag = )"v[0-9][^"]*"',
-        lambda m: f'{m.group(1)}"v{version}"',
-        text,
-    )
+    from contoso_product.show import repin as shared
 
+    return shared(text, version)
 
 def bump(leaf: str, version: str) -> str:
     repo = f"repos/{OWNER}/{leaf}"
