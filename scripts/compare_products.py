@@ -134,6 +134,7 @@ def main() -> int:
     p.add_argument("--airflow", type=Path, default=None)
     p.add_argument("--airflow-builtin", type=Path, default=None)
     p.add_argument("--databricks-airflow", type=Path, default=None)
+    p.add_argument("--snowflake-airflow", type=Path, default=None)
     args = p.parse_args()
     # ENUMERATED ONCE. The optional runtimes were listed in three separate
     # places -- the aggregate comparison, the agreement line and the contract
@@ -145,6 +146,7 @@ def main() -> int:
         ("airflow", args.airflow),
         ("airflow-builtin", args.airflow_builtin),
         ("databricks-airflow", args.databricks_airflow),
+        ("snowflake-airflow", args.snowflake_airflow),
     ]
     a, b = load(args.fabric), load(args.databricks)
 
