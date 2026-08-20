@@ -45,9 +45,23 @@ TABLE = "fct_revenue_summary"
 # Types are declared here and only here: the yml carries quality contracts,
 # not storage types, and a semantic model needs both.
 COLUMNS: tuple[tuple[str, str], ...] = (
-    ("revenue_usd", "double"),
+    # MONEY IS `decimal`, NOT `double`, and the product's own contract says so:
+    # `money_is_never_stored_as_float` requires every column named like money to
+    # be an exact base-10 type in the warehouse, and it would be strange for the
+    # model SERVING those columns to widen them back to a binary float on the
+    # way out. That contract exists because a single `cast(null as float)` in a
+    # UNION once demoted every real price silently -- every row still held the
+    # right number and the column had stopped being money.
+    #
+    # It changes nothing against this family's emulator, whose evaluator sums in
+    # float64 whatever a column declares -- checked, not assumed
+    # (`summableType` and `daxDataType` both accept decimal and both land on
+    # DOUBLE). On real Fabric the engine honours the declared type, so this is
+    # the difference between a model that is correct where it is measured and
+    # one that is correct where it is deployed.
+    ("revenue_usd", "decimal"),
     ("sale_lines", "int64"),
-    ("cancelled_revenue_usd", "double"),
+    ("cancelled_revenue_usd", "decimal"),
     ("fiscal_year_label", "string"),
     ("customer_segment", "string"),
     ("product_segment", "string"),
