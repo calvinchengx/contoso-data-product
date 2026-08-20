@@ -31,8 +31,25 @@ import shutil
 import sys
 from pathlib import Path
 
+from typing import TypedDict
+
 from . import gold_dir, silver_dir
 from .contracts import PRODUCT_NAME
+
+class Layer(TypedDict):
+    """One dbt project's contents, as file stems."""
+
+    models: list[str]
+    tests: list[str]
+    macros: list[str]
+
+
+class Inventory(TypedDict):
+    version: str
+    product: str
+    silver: Layer
+    gold: Layer
+
 
 BEGIN = "<!-- BEGIN product inventory: python -m contoso_product.show --markdown -->"
 END = "<!-- END product inventory -->"
@@ -71,7 +88,7 @@ def _sql(directory: Path) -> list[str]:
     return sorted(p.stem for p in directory.glob("*.sql"))
 
 
-def inventory() -> dict[str, object]:
+def inventory() -> Inventory:
     """What the product contains, read from the installed package.
 
     Read rather than declared: the point of the block this feeds is that it
@@ -110,8 +127,7 @@ def markdown() -> str:
         f"there and are staged locally by `make show-product`."
     )
     out.append("")
-    for layer in ("silver", "gold"):
-        data = inv[layer]
+    for layer, data in (("silver", inv["silver"]), ("gold", inv["gold"])):
         models, tests = data["models"], data["tests"]
         # LISTED SEPARATELY, not paired in one table. A two-column table of
         # models beside tests reads as a correspondence, and there is none: the
@@ -147,8 +163,7 @@ def stage(into: Path) -> Path:
 def human() -> str:
     inv = inventory()
     lines = [f"contoso-data-product v{inv['version']}  ({inv['product']})"]
-    for layer in ("silver", "gold"):
-        data = inv[layer]
+    for layer, data in (("silver", inv["silver"]), ("gold", inv["gold"])):
         lines.append(
             f"  {layer}: {plural(len(data['models']), 'model')}, "
             f"{plural(len(data['tests']), 'singular test')}, "

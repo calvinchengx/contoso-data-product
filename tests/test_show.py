@@ -15,10 +15,10 @@ from contoso_product import gold_dir, show, silver_dir
 
 def test_the_inventory_is_read_from_the_package_not_declared():
     inventory = show.inventory()
-    for layer, directory in (("silver", silver_dir()), ("gold", gold_dir())):
+    for layer, directory in ((inventory["silver"], silver_dir()), (inventory["gold"], gold_dir())):
         on_disk = sorted(p.stem for p in (directory / "models").glob("*.sql"))
-        assert inventory[layer]["models"] == on_disk, layer
-        assert on_disk, f"{layer} has no models, so the lister is reading the wrong place"
+        assert layer["models"] == on_disk
+        assert on_disk, "a layer has no models, so the lister is reading the wrong place"
 
 
 def test_every_listed_file_exists_and_is_linked_at_the_installed_version():
