@@ -27,6 +27,7 @@ was wrong 28 times in 70.
 from __future__ import annotations
 
 import argparse
+import re
 import shutil
 import sys
 from pathlib import Path
@@ -256,15 +257,74 @@ def check_pin() -> tuple[bool, str]:
     )
 
 
+def repin(text: str, version: str) -> str:
+    """Move whichever form of the product pin a leaf uses.
+
+    IN THE PACKAGE, NOT IN A SCRIPT, because both directions need it: the core
+    can open bump PRs across the leaves, and a leaf can raise its own. Two
+    copies of a regex that must match two pin forms is how one form silently
+    stops being rewritten.
+
+    Two forms are in use and both are legitimate: a release wheel URL and a git
+    tag. Rewriting only the one whoever wrote this happened to be looking at is
+    exactly how a leaf gets left behind while a sweep reports success.
+    """
+    owner_product = repository().rstrip("/").split("github.com/", 1)[-1]
+    product = owner_product.split("/")[-1]
+    wheel = (
+        f"{repository()}/releases/download/"
+        f"v{version}/{product.replace('-', '_')}-{version}-py3-none-any.whl"
+    )
+    moved = re.sub(
+        rf'({re.escape(product)} = {{ url = )"[^"]+"',
+        lambda m: f'{m.group(1)}"{wheel}"',
+        text,
+    )
+    if moved != text:
+        return moved
+    return re.sub(
+        rf'({re.escape(product)} = {{ git = "[^"]+", tag = )"v[0-9][^"]*"',
+        lambda m: f'{m.group(1)}"v{version}"',
+        text,
+    )
+
+
+def update_pin(pyproject: Path) -> tuple[bool, str]:
+    """Rewrite a leaf's own pin to the newest release. Returns (changed, message).
+
+    THE LEAF RAISES ITS OWN BUMP. A push from the core needs a token with write
+    on seven repositories; a leaf editing its own `pyproject.toml` needs only
+    the `GITHUB_TOKEN` its workflow already has. One expired secret cannot then
+    stop all seven at once, and there is no secret to over-scope in the first
+    place.
+    """
+    try:
+        newest = latest_release()
+    except Exception as error:  # noqa: BLE001
+        return False, f"could not ask which release is newest ({error})"
+    text = pyproject.read_text(encoding="utf-8")
+    moved = repin(text, newest)
+    if moved == text:
+        return False, f"already pinned at v{newest}"
+    pyproject.write_text(moved, encoding="utf-8")
+    return True, f"pin moved to v{newest}"
+
+
 def main(argv: list[str] | None = None) -> int:
     parser = argparse.ArgumentParser(prog="contoso_product.show", description=__doc__.splitlines()[0])
     parser.add_argument("--into", metavar="DIR", help="copy the product's dbt projects here and print the path")
     parser.add_argument("--markdown", action="store_true", help="emit the README inventory block")
+    parser.add_argument("--update-pin", metavar="PYPROJECT", dest="update_pin",
+                        help="rewrite that pyproject's product pin to the newest release")
     parser.add_argument("--check-pin", action="store_true", dest="check_pin",
                         help="fail unless the installed product is the newest release")
     parser.add_argument("--check", metavar="README", help="fail if that README's block is not what this version contains")
     args = parser.parse_args(argv)
 
+    if args.update_pin:
+        changed, message = update_pin(Path(args.update_pin))
+        print(message)
+        return 0 if changed else 1
     if args.check_pin:
         ok, message = check_pin()
         print(message)

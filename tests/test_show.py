@@ -174,3 +174,51 @@ def test_the_bump_script_moves_both_pin_forms():
     # And a pin already current must be left alone, so the script can run on
     # every release without opening seven no-op pull requests.
     assert bump.repin(bump.repin(wheel, "0.5.0"), "0.5.0") == bump.repin(wheel, "0.5.0")
+
+
+def test_update_pin_moves_either_form_and_is_idempotent(tmp_path, monkeypatch):
+    """A leaf raises its own bump, so this runs in seven repositories.
+
+    Rewriting only the form whoever wrote it had in front of them is how a leaf
+    silently stops being bumped: five leaves pin a wheel URL and one pins a git
+    tag.
+    """
+    monkeypatch.setattr(show, "latest_release", lambda timeout=10.0: "9.9.9")
+
+    wheel = tmp_path / "wheel.toml"
+    wheel.write_text(
+        'contoso-data-product = { url = "https://github.com/calvinchengx/'
+        'contoso-data-product/releases/download/v0.1.6/'
+        'contoso_data_product-0.1.6-py3-none-any.whl" }\n',
+        encoding="utf-8",
+    )
+    changed, message = show.update_pin(wheel)
+    assert changed, message
+    assert "contoso_data_product-9.9.9-py3-none-any.whl" in wheel.read_text()
+    assert "0.1.6" not in wheel.read_text()
+
+    tag = tmp_path / "tag.toml"
+    tag.write_text(
+        'contoso-data-product = { git = "https://github.com/calvinchengx/'
+        'contoso-data-product.git", tag = "v0.4.0" }\n',
+        encoding="utf-8",
+    )
+    changed, _ = show.update_pin(tag)
+    assert changed and 'tag = "v9.9.9"' in tag.read_text()
+
+    # A second run must do nothing, so a daily schedule does not open a PR a day.
+    changed, message = show.update_pin(wheel)
+    assert not changed and "already pinned" in message
+
+
+def test_update_pin_reports_rather_than_writes_when_it_cannot_ask(tmp_path, monkeypatch):
+    def unreachable(timeout=10.0):
+        raise OSError("no route to host")
+
+    monkeypatch.setattr(show, "latest_release", unreachable)
+    pyproject = tmp_path / "pyproject.toml"
+    pyproject.write_text("unchanged\n", encoding="utf-8")
+    changed, message = show.update_pin(pyproject)
+    assert not changed
+    assert "could not ask" in message
+    assert pyproject.read_text() == "unchanged\n", "a failed lookup rewrote the pin"
