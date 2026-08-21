@@ -440,3 +440,51 @@ def test_the_rendered_country_case_is_built_from_COUNTRY():
     for variant, canonical in COUNTRY.items():
         assert f"when '{variant}' then '{canonical}'" in sql, variant
     assert sql.count("when '") == len(COUNTRY)
+
+
+def test_every_env_var_the_models_read_is_dbt_prefixed():
+    """One engine will not carry any other kind, so none of them may exist.
+
+    dbt Projects on Snowflake namespaces the environment a project can read:
+    "Every key in `env:` and in any override must be prefixed with `DBT_` ...
+    Every key must be UPPERCASE", and "these rules are enforced on every run.
+    If you break them, the run fails." There is no route around it -- not
+    ENV_VARS, not env.yml, not the shell -- so a model reading
+    `CONTOSO_SILVER_DATABASE` cannot run there at all.
+
+    THE POINT OF THIS PRODUCT IS THAT ONE COPY RUNS EVERYWHERE, and an env var
+    name is exactly the kind of detail that is portable on three engines and
+    fatal on the fourth. It cost a Snowflake cell its gold step to find, so it
+    is asserted here rather than left to the next engine to discover.
+
+    A NESTED DEFAULT IS ALSO REFUSED. `env_var('A', env_var('B'))` reads B
+    whether or not A is set, because Jinja evaluates the default eagerly -- so
+    a fallback meant for one engine becomes mandatory on all of them.
+    """
+    pattern = re.compile(r"env_var\(\s*'([^']+)'")
+    offenders, nested = [], []
+    scanned = 0
+    for root in (gold_dir(), silver_dir()):
+        for path in Path(root).rglob("*.yml"):
+            scanned += 1
+            for line in path.read_text(encoding="utf-8").splitlines():
+                code = line.split("#", 1)[0]
+                if "env_var(" not in code:
+                    continue
+                if code.count("env_var(") > 1:
+                    nested.append(f"{path.name}: {code.strip()}")
+                for name in pattern.findall(code):
+                    if not name.startswith("DBT_") or name != name.upper():
+                        offenders.append(f"{path.name}: {name}")
+
+    # A scan that found no files would pass by finding nothing.
+    assert scanned, "no model yml was scanned, so this asserts nothing"
+
+    assert not offenders, (
+        "these env vars cannot be supplied on Snowflake, where every key must be "
+        f"UPPERCASE and DBT_-prefixed: {offenders}"
+    )
+    assert not nested, (
+        "a nested env_var default is read eagerly, so the fallback applies on every "
+        f"engine whether or not the first name is set: {nested}"
+    )
