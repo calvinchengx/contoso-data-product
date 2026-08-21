@@ -4,10 +4,27 @@ version: 2
 # endpoint; gold builds in the WAREHOUSE database. Both are databases on the
 # same engine, so dbt reads across them with three-part names — which is how
 # real Fabric works too.
+#
+# DBT_-PREFIXED AND UPPERCASE, because one engine will not carry any other kind.
+# dbt Projects on Snowflake namespaces the environment a project can read:
+# "Every key in env: and in any override must be prefixed with DBT_ … Every key
+# must be UPPERCASE", and "these rules are enforced on every run. If you break
+# them, the run fails." `CONTOSO_SILVER_DATABASE` cannot be supplied there at
+# all — not through ENV_VARS, not through env.yml, not through the shell — so
+# gold could run on every engine in this family except the one whose cell is
+# named for running dbt as a first-class object.
+#
+# THE DEFAULT IS GONE, NOT JUST RENAMED. It used to read
+# `env_var('CONTOSO_SILVER_DATABASE', env_var('LAKEHOUSE_ID'))`, and Jinja
+# evaluates a default EAGERLY — so the fallback was read whether or not the
+# first name was set, which made a Fabric-only variable mandatory on every
+# engine. Every cell already sets this explicitly; a name with no sensible
+# universal default is better required, and dbt says exactly which one is
+# missing.
 sources:
   - name: silver
-    database: "{{ env_var('CONTOSO_SILVER_DATABASE', env_var('LAKEHOUSE_ID')) }}"
-    schema: "{{ env_var('CONTOSO_SILVER_SCHEMA', 'dbo') }}"
+    database: "{{ env_var('DBT_SILVER_DATABASE') }}"
+    schema: "{{ env_var('DBT_SILVER_SCHEMA', 'dbo') }}"
     tables:
       - name: silver_customers
       - name: silver_orders
