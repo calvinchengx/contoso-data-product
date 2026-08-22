@@ -1,0 +1,12 @@
+# Fabric · built-in Airflow: history
+
+Everything the matrix row for **Fabric · built-in Airflow** once carried, verbatim and in the
+order it was written, newest first. The row in [01-plan.md](../01-plan.md)
+now holds only the current state and points here; nothing was cut in the
+move. Each block below was the whole of the row at the time, and each
+`Previously` block is what the block above it replaced. They are not dated
+because the originals were not; the witness ids inside them are.
+
+## Current entry
+
+**The whole medallion, on Fabric's own scheduler, producing the family's numbers.** 11/11 tasks: four vendors (three HTTP + one CDC), 580,719 bronze rows across eight tables into OneLake by delta-rs, **8 silver** models by dbt over Livy to Sail, endpoint refresh, **9 gold** models by dbt-fabric over TDS, and `PASS=52 WARN=0 ERROR=0` contracts. Both transforms resolve from `site-packages/contoso_product/`, with a test that fails if any `.sql` appears in the leaf. **DoD 4 is met**: the DAG publishes `product_snapshot.json` to OneLake, `witness.py` fetches it by filename, and `compare_products` exits 0 **four ways** on `129,341,157.6700 / 2,800,504.4000 / 474,044` — the same figures to the last digit as Fabric, Databricks and Airflow 3. Contract names come from `run_results.json` with `args.which` asserted, which is **stricter than the Databricks leaf** — a name on disk that no test produced fails the task rather than being published. **✅ on all five, each checked rather than assumed.** *DoD 1*: platform deps are two published wheels with no path reference, and **DoD 1 is now met** — the vendor stack is generated from `contoso-sources/sources.yaml` and the platform tracks no vendor definition (G24, closed), re-witnessed from EMPTY VOLUMES rather than a warm stack. **DoD 2 is not a gap** (G25, closed): Fabric's built-in Airflow is the vendor's own image, and a release wheel URL is the same immutability as the tag. *DoD 2*: the leaf holds no `.sql` (a test fails if one appears) and pins core by release wheel — the mechanism Fabric's own image forces (G25). *DoD 3*: it runs **through the orchestrator it is named for**, which is exactly what Databricks · Jobs still lacks. *DoD 4*: four-way `compare_products` exit 0. *DoD 5*: the four gaps it still carries — G20, G23, G26, G27 — are rows. Preconditions were read, not assumed: ERP watermark 93,571 at the broker before the run, and the image rebuilt so the green exercises a declared `pyodbc` rather than one that happened to be in the sidecar
