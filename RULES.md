@@ -47,7 +47,7 @@ The family layout is in [`docs/00-family.md`](docs/00-family.md); the plan in
 |---|---|
 | **Rule** | No expected number is written in a leaf or a platform. The family's numbers live in the snapshots this repository compares, and a runtime that disagrees **fails** — it does not get its own. |
 | **Why** | The databricks platform once wrote a two-row fixture and published `revenue_usd 37`. It was green. It compared to nothing. Numbers that a cell can define for itself are numbers that mean nothing across cells. |
-| **Enforced by** | `compare_products.py` — `empty()` refuses a snapshot with no evidence, and any disagreement exits 1 |
+| **Enforced by** | `expected.py` states them and `assert_snapshot.py` holds one cell to them in its own CI; `compare_products.py` holds the cells to each other — `empty()` refuses a snapshot with no evidence, and any disagreement exits 1 |
 
 ## 3. Dialect
 
