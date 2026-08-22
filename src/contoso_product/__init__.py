@@ -5,6 +5,7 @@ This package does not import fabric-target or databricks-target.
 """
 
 from .bronze import run_bronze
+from .expected import EXPECTED, check
 from .bronze_contract import bronze_contract, check_bronze
 from .silver import COUNTRY, MONEY, RATE, run_silver
 
@@ -18,6 +19,8 @@ __all__ = [
     "run_bronze",
     "run_silver",
     "silver_dir",
+    "EXPECTED",
+    "check",
 ]
 
 
