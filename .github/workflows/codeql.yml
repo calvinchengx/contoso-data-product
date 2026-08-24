@@ -1,0 +1,65 @@
+# CodeQL — advanced (in-repo) setup.
+#
+# THIS REPOSITORY WAS NOT SCANNED, and of the family's unscanned repos it is the
+# one that most needed to be: it publishes a wheel that every leaf installs, so
+# its code reaches users by supply chain rather than by demo. The nine emulator
+# and service repos each carry a workflow; the product and platform repos carry
+# none. See G51 in docs/01-plan.md.
+#
+# The precedent is not hypothetical. fabric-emulator is scanned and that is the
+# only reason two real defects were found there — an error body built with Go
+# quoting where JSON was required, and the same shape in XML in a second
+# dialect. Neither was hypothesised; both were reported by the scanner.
+#
+# Two languages, because that is what this repository contains:
+#   - python   src/, tests/, scripts/ — the package itself
+#   - actions  these workflows
+name: CodeQL
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+  schedule:
+    - cron: '31 7 * * 1' # weekly, Monday 07:31 UTC
+
+# Superseding a PR run is free. Superseding a main run is NOT: a cancelled
+# CodeQL job still uploads its SARIF, flagged `unsuccessful execution` with zero
+# results, and that errored analysis becomes the newest one for its category.
+# A sibling lost 11 of its first 43 main runs that way. So main runs to
+# completion; only PR pushes cancel.
+concurrency:
+  group: codeql-${{ github.ref }}
+  cancel-in-progress: ${{ github.event_name == 'pull_request' }}
+
+jobs:
+  analyze:
+    name: Analyze (${{ matrix.language }})
+    runs-on: ubuntu-latest
+    # Explicit, because GitHub's 6-hour default makes a wedged run read as
+    # 'still pending' rather than failing.
+    timeout-minutes: 20
+    permissions:
+      security-events: write
+      packages: read
+      actions: read
+      contents: read
+    strategy:
+      fail-fast: false # one language's failure must not hide the other
+      matrix:
+        language: [python, actions]
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v7
+
+      - name: Initialize CodeQL
+        uses: github/codeql-action/init@v4.37.7
+        with:
+          languages: ${{ matrix.language }}
+          # `none`: nothing here is compiled, so there is no build to observe.
+          build-mode: none
+
+      - name: Perform CodeQL Analysis
+        uses: github/codeql-action/analyze@v4.37.7
+        with:
+          category: '/language:${{ matrix.language }}'
