@@ -56,14 +56,27 @@ jobs:
       - name: Bump every leaf
         env:
           # Needs `contents: write` and `pull_requests: write` on the seven leaf
-          # repositories. Without it the release still ships and nothing
-          # downstream moves, so the step fails loudly rather than skipping.
+          # repositories. THIS WAS ONCE THE ONLY MECHANISM, and the step failed
+          # loudly without it on purpose -- a release that told nobody had to be
+          # visible. That is no longer true: `docs/leaf-bump-workflow.yml` has
+          # been deployed to all seven leaves since 2026-08-20 (the same day
+          # this job was written), each raising its own bump on its own
+          # schedule from its own GITHUB_TOKEN. Verified 2026-09-19: all seven
+          # already pin this release with no PR pending, entirely from that
+          # backstop, while this token has never existed. A step that can only
+          # ever fail is not a live check any more; it is a permanently red
+          # light nobody looks at, which is worse than no light -- so a missing
+          # token now WARNS rather than fails the release. It stays worth
+          # creating: it is the one thing that gets a leaf bumped within
+          # minutes instead of within a day.
           GH_TOKEN: ${{ secrets.LEAF_BUMP_TOKEN }}
         run: |
           if [ -z "$GH_TOKEN" ]; then
-            echo "::error::LEAF_BUMP_TOKEN is not set. The release shipped, but " \
-                 "no leaf was told, and every leaf's --check-pin will now fail " \
-                 "until someone bumps them by hand."
-            exit 1
+            echo "::warning::LEAF_BUMP_TOKEN is not set, so this release was not " \
+                 "pushed to any leaf directly. Each leaf's own scheduled " \
+                 "product-bump.yml will pick it up on its own -- normally within " \
+                 "a day -- so this is a delay, not a gap. Set the token for an " \
+                 "immediate bump instead."
+            exit 0
           fi
           python3 scripts/bump_leaves.py
